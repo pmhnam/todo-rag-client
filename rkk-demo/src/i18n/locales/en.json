@@ -18,7 +18,14 @@
     "tamStyle": "Tam Style",
     "tamDescription": "Tam-inspired board design",
     "infiniteScroll": "Infinite Scroll",
-    "infiniteScrollDescription": "Paginated loading as you scroll"
+    "infiniteScrollDescription": "Paginated loading as you scroll",
+    "myWorkspace": "My Workspace",
+    "myBoard": "My Board",
+    "myBoardDescription": "Your personal Kanban board",
+    "aiChat": "AI Chat",
+    "aiChatDescription": "Chat with your data using AI",
+    "profile": "Profile",
+    "profileDescription": "Account settings & info"
   },
   "language": {
     "english": "English",
@@ -41,7 +48,30 @@
     "clickup": {
       "title": "ClickUp Style Board",
       "description": "Modern task management interface inspired by ClickUp's design"
+    },
+    "board": {
+      "title": "My Board",
+      "description": "Manage your tasks with drag-and-drop"
+    },
+    "chat": {
+      "title": "AI Chat",
+      "description": "Ask questions about your tasks and data"
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Your account information"
     }
+  },
+  "auth": {
+    "login": "Sign In",
+    "register": "Create Account",
+    "logout": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?"
   },
   "common": {
     "loading": "Loading...",
@@ -53,6 +83,8 @@
     "delete": "Delete",
     "add": "Add",
     "close": "Close",
-    "unassigned": "Unassigned"
+    "unassigned": "Unassigned",
+    "create": "Create",
+    "confirm": "Confirm"
   }
 }

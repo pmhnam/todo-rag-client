@@ -2,6 +2,10 @@
 @forward "./TrelloExample/index";
 @forward "./ClickUpExample/index";
 @forward "./InfiniteScrollExample/index";
+@forward "./Login/index";
+@forward "./TodoBoard/index";
+@forward "./AiChat/index";
+@forward "./Profile/index";
 
 // Clean page layout
 .#{$demo-prefix}-page {

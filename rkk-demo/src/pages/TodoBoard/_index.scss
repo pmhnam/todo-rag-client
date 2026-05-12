@@ -1,0 +1,227 @@
+.todo-board {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.todo-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+}
+.todo-board-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  h1 { font-size: 1.3rem; font-weight: 700; margin: 0; }
+}
+.todo-board-count {
+  font-size: 0.8rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+.todo-board-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 12px;
+}
+.todo-board-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #6b7280;
+}
+.todo-board-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #9ca3af;
+  gap: 12px;
+  h3 { color: #374151; margin: 0; }
+  p { max-width: 300px; }
+}
+.todo-board-column {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+.todo-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+.todo-column-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.todo-column-grip { color: #cbd5e1; cursor: grab; }
+.todo-column-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.todo-column-name { font-weight: 600; font-size: 0.85rem; color: #1e293b; }
+.todo-column-count {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  background: #e2e8f0;
+  padding: 1px 7px;
+  border-radius: 8px;
+}
+.todo-column-delete {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  &:hover { color: #ef4444; background: #fef2f2; }
+}
+.todo-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { border-color: #c7d2fe; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+}
+.todo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.todo-card-priority {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.todo-card-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  .todo-card:hover & { opacity: 1; }
+  button {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 3px;
+    border-radius: 4px;
+    display: flex;
+    &:hover { color: #4b5563; background: #f3f4f6; }
+  }
+}
+.todo-card-title { font-size: 0.85rem; font-weight: 600; color: #1f2937; line-height: 1.3; }
+.todo-card-description {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.todo-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.todo-card-due {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+.todo-card-jira {
+  font-size: 0.7rem;
+  color: #2563eb;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+.todo-add-card-btn {
+  width: 100%;
+  background: none;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 8px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+  &:hover { background: #f9fafb; border-color: #9ca3af; }
+}
+.todo-add-card {
+  background: white;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 4px;
+  input { width: 100%; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.85rem; &:focus { outline: none; border-color: #667eea; } }
+}
+.todo-add-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 8px;
+}
+.todo-add-card-priority {
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+.todo-add-card-buttons {
+  display: flex;
+  gap: 4px;
+}
+.todo-add-column-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #f0f4ff;
+  border-bottom: 1px solid #c7d2fe;
+  input { padding: 6px 12px; border: 1px solid #c7d2fe; border-radius: 8px; font-size: 0.85rem; &:focus { outline: none; border-color: #667eea; } }
+}
+.todo-add-column-colors {
+  display: flex;
+  gap: 4px;
+}
+.todo-color-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  &.active { border-color: #1e293b; transform: scale(1.15); }
+  &:hover { transform: scale(1.1); }
+}
+.todo-add-column-actions { display: flex; gap: 6px; }
+.todo-edit-form { display: flex; flex-direction: column; gap: 16px; }
+.todo-edit-row { display: flex; gap: 12px; > * { flex: 1; } }
+.todo-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
