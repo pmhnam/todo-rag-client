@@ -1,3 +1,6 @@
+@use "sass:map";
+@use "sass:list";
+
 // Breakpoints
 $breakpoints: (
   xs: 480px,
@@ -10,7 +13,7 @@ $breakpoints: (
 
 // Get breakpoint value
 @function breakpoint($name) {
-  @return map-get($breakpoints, $name);
+  @return map.get($breakpoints, $name);
 }
 
 // Media query mixins
@@ -48,11 +51,11 @@ $breakpoints: (
   $next: null;
 
   // Find next breakpoint
-  $breakpoint-names: map-keys($breakpoints);
-  $index: index($breakpoint-names, $name);
+  $breakpoint-names: map.keys($breakpoints);
+  $index: list.index($breakpoint-names, $name);
 
-  @if $index and $index < length($breakpoint-names) {
-    $next-name: nth($breakpoint-names, $index + 1);
+  @if $index and $index < list.length($breakpoint-names) {
+    $next-name: list.nth($breakpoint-names, $index + 1);
     $next: breakpoint($next-name);
   }
 

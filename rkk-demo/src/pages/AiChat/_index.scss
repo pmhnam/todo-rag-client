@@ -1,6 +1,7 @@
 .ai-chat {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 .ai-chat-sidebar {
@@ -79,6 +80,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 .ai-chat-welcome {
   flex: 1;
