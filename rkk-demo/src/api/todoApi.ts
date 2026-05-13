@@ -7,14 +7,14 @@ import type {
   CreateTodoStatusReq,
   UpdateTodoStatusReq,
   ListTodoParams,
+  ListTodoStatusParams,
   PaginatedRes,
-  PageParams,
 } from './types';
 
 // ─── Todo Status API ───────────────────────────────────
 
 export const todoStatusApi = {
-  getAll: (params?: PageParams) =>
+  getAll: (params: ListTodoStatusParams) =>
     apiClient
       .get<PaginatedRes<TodoStatus>>('/todo-statuses', { params })
       .then((r) => r.data),

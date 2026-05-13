@@ -56,10 +56,31 @@ export interface User {
   updatedAt: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  userId: string;
+  settings?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectReq {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateProjectReq {
+  name?: string;
+  description?: string;
+}
+
 // ─── TodoStatus ────────────────────────────────────────
 
 export interface TodoStatus {
   id: string;
+  projectId: string;
   name: string;
   order: number;
   color?: string;
@@ -68,6 +89,7 @@ export interface TodoStatus {
 }
 
 export interface CreateTodoStatusReq {
+  projectId: string;
   name: string;
   order?: number;
   color?: string;
@@ -83,6 +105,7 @@ export interface UpdateTodoStatusReq {
 
 export interface Todo {
   id: string;
+  projectId: string;
   title: string;
   description?: string;
   statusId: string;
@@ -96,14 +119,23 @@ export interface Todo {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  tags?: string[];
+  externalLinks?: { name: string; url: string }[];
+  aiSummary?: string;
+  generatedByAi?: boolean;
 }
 
 export interface CreateTodoReq {
+  projectId: string;
   title: string;
   description?: string;
   statusId: string;
   priority?: TodoPriority;
   dueDate?: string;
+  tags?: string[];
+  externalLinks?: { name: string; url: string }[];
+  aiSummary?: string;
+  generatedByAi?: boolean;
 }
 
 export interface UpdateTodoReq {
@@ -112,14 +144,23 @@ export interface UpdateTodoReq {
   statusId?: string;
   priority?: TodoPriority;
   dueDate?: string;
+  tags?: string[];
+  externalLinks?: { name: string; url: string }[];
+  aiSummary?: string;
+  generatedByAi?: boolean;
 }
 
 export interface ListTodoParams {
+  projectId: string;
   page?: number;
   limit?: number;
   statusId?: string;
   priority?: TodoPriority;
   jiraSyncStatus?: JiraSyncStatus;
+}
+
+export interface ListTodoStatusParams extends PageParams {
+  projectId: string;
 }
 
 // ─── Post ──────────────────────────────────────────────
