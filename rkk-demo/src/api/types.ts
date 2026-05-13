@@ -15,6 +15,12 @@ export const JiraSyncStatus = {
 } as const;
 export type JiraSyncStatus = (typeof JiraSyncStatus)[keyof typeof JiraSyncStatus];
 
+export const JiraAuthType = {
+  BASIC: 'BASIC',
+  BEARER: 'BEARER',
+} as const;
+export type JiraAuthType = (typeof JiraAuthType)[keyof typeof JiraAuthType];
+
 // ─── Auth ──────────────────────────────────────────────
 
 export interface LoginReq {
@@ -150,6 +156,10 @@ export interface UpdateTodoReq {
   generatedByAi?: boolean;
 }
 
+export interface LinkJiraIssueReq {
+  jiraIssueKey?: string | null;
+}
+
 export interface ListTodoParams {
   projectId: string;
   page?: number;
@@ -161,6 +171,55 @@ export interface ListTodoParams {
 
 export interface ListTodoStatusParams extends PageParams {
   projectId: string;
+}
+
+// ─── Jira Integration ──────────────────────────────────
+
+export interface JiraIntegration {
+  id: string;
+  jiraDomain: string;
+  jiraEmail?: string;
+  authType: JiraAuthType;
+  jiraProjectKey?: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertJiraIntegrationReq {
+  jiraDomain: string;
+  authType: JiraAuthType;
+  jiraEmail?: string;
+  jiraApiToken?: string;
+  jiraProjectKey?: string;
+}
+
+export interface JiraTestConnectionRes {
+  success: boolean;
+  accountId?: string;
+  displayName?: string;
+}
+
+export interface JiraTransitionMapping {
+  id: string;
+  todoStatusId: string;
+  jiraTransitionId: string;
+  jiraTransitionName?: string;
+}
+
+export interface UpsertJiraTransitionMappingsReq {
+  mappings: Array<{
+    todoStatusId: string;
+    jiraTransitionId: string;
+    jiraTransitionName?: string;
+  }>;
+}
+
+export interface JiraTransition {
+  id: string;
+  name: string;
+  toStatusId?: string;
+  toStatusName?: string;
 }
 
 // ─── Post ──────────────────────────────────────────────

@@ -32,6 +32,11 @@
   padding: 2px 10px;
   border-radius: 12px;
 }
+.todo-board-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .todo-board-content {
   flex: 1;
   overflow: hidden;
@@ -187,6 +192,31 @@
   text-decoration: none;
   &:hover { text-decoration: underline; }
 }
+.todo-card-jira-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.todo-card-jira-status {
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+}
+.todo-card-jira-failed .todo-card-jira-status {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.todo-card-jira-pending .todo-card-jira-status {
+  background: #fef3c7;
+  color: #92400e;
+}
+.todo-card-jira-not_linked .todo-card-jira-status {
+  background: #f3f4f6;
+  color: #6b7280;
+}
 .todo-add-card-btn {
   width: 100%;
   background: none;
@@ -255,3 +285,74 @@
 .todo-edit-form { display: flex; flex-direction: column; gap: 16px; }
 .todo-edit-row { display: flex; gap: 12px; > * { flex: 1; } }
 .todo-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+.todo-jira-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.todo-jira-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fbfdff;
+
+  h4 {
+    margin: 0 0 4px;
+    color: #111827;
+    font-size: 0.95rem;
+  }
+
+  p {
+    margin: 0 0 12px;
+    color: #6b7280;
+    font-size: 0.8rem;
+  }
+}
+.todo-jira-mappings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.todo-jira-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(120px, 0.8fr) minmax(160px, 1fr);
+  gap: 8px;
+  align-items: center;
+
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.85rem;
+
+    &:focus { outline: none; border-color: #667eea; }
+  }
+}
+.todo-jira-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+@media (max-width: 720px) {
+  .todo-board-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .todo-board-header-right,
+  .todo-edit-row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .todo-jira-mapping-row {
+    grid-template-columns: 1fr;
+  }
+}

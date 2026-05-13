@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
 import { todoApi, todoStatusApi } from '../../api/todoApi';
 import { projectApi } from '../../api/projectApi';
+import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
+import { JiraAuthType } from '../../api/types';
 import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, Project } from '../../api/types';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -115,9 +117,12 @@ const TodoCard: React.FC<{
           <div className="todo-card-due"><Calendar size={12} /><span>{new Date(todo.dueDate).toLocaleDateString()}</span></div>
         )}
         {todo.jiraIssueKey && (
-          <a href={todo.jiraIssueUrl} target="_blank" rel="noopener noreferrer" className="todo-card-jira" onClick={(e) => e.stopPropagation()}>
-            🎫 {todo.jiraIssueKey}
-          </a>
+          <span className={`todo-card-jira-wrap todo-card-jira-${todo.jiraSyncStatus?.toLowerCase()}`}>
+            <a href={todo.jiraIssueUrl} target="_blank" rel="noopener noreferrer" className="todo-card-jira" onClick={(e) => e.stopPropagation()}>
+              🎫 {todo.jiraIssueKey}
+            </a>
+            <span className="todo-card-jira-status">{todo.jiraSyncStatus}</span>
+          </span>
         )}
       </div>
     </div>
@@ -196,7 +201,17 @@ export const TodoBoard: React.FC = () => {
   const [editAiSummary, setEditAiSummary] = useState('');
   const [editGeneratedByAi, setEditGeneratedByAi] = useState(false);
   const [editExternalLinks, setEditExternalLinks] = useState<{name: string, url: string}[]>([]);
+  const [editJiraIssueKey, setEditJiraIssueKey] = useState('');
   const [deletingTodo, setDeletingTodo] = useState<Todo | null>(null);
+  const [showJiraSettings, setShowJiraSettings] = useState(false);
+  const [jiraHasConfig, setJiraHasConfig] = useState(false);
+  const [jiraLoading, setJiraLoading] = useState(false);
+  const [jiraDomain, setJiraDomain] = useState('');
+  const [jiraAuthType, setJiraAuthType] = useState<JiraAuthType>(JiraAuthType.BASIC);
+  const [jiraEmail, setJiraEmail] = useState('');
+  const [jiraApiToken, setJiraApiToken] = useState('');
+  const [jiraProjectKey, setJiraProjectKey] = useState('');
+  const [jiraMappings, setJiraMappings] = useState<Record<string, { jiraTransitionId: string; jiraTransitionName: string }>>({});
 
   const { showToast } = useToast();
 
@@ -250,6 +265,120 @@ export const TodoBoard: React.FC = () => {
     }
   }, [selectedProjectId, loadData]);
 
+  const resetJiraForm = () => {
+    setJiraHasConfig(false);
+    setJiraDomain('');
+    setJiraAuthType(JiraAuthType.BASIC);
+    setJiraEmail('');
+    setJiraApiToken('');
+    setJiraProjectKey('');
+    setJiraMappings({});
+  };
+
+  const handleOpenJiraSettings = async () => {
+    if (!selectedProjectId) return;
+    setShowJiraSettings(true);
+    setJiraLoading(true);
+    resetJiraForm();
+
+    try {
+      const integration = await jiraIntegrationApi.get(selectedProjectId);
+      setJiraHasConfig(true);
+      setJiraDomain(integration.jiraDomain);
+      setJiraAuthType(integration.authType);
+      setJiraEmail(integration.jiraEmail || '');
+      setJiraProjectKey(integration.jiraProjectKey || '');
+
+      const mappings = await jiraIntegrationApi.getTransitionMappings(selectedProjectId);
+      setJiraMappings(Object.fromEntries(mappings.map((mapping) => [
+        mapping.todoStatusId,
+        {
+          jiraTransitionId: mapping.jiraTransitionId,
+          jiraTransitionName: mapping.jiraTransitionName || '',
+        },
+      ])));
+    } catch (err) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status !== 404) {
+        showToast('Failed to load Jira settings', 'error');
+      }
+    } finally {
+      setJiraLoading(false);
+    }
+  };
+
+  const handleSaveJiraSettings = async () => {
+    if (!selectedProjectId) return;
+    if (!jiraDomain.trim()) {
+      showToast('Jira domain is required', 'error');
+      return;
+    }
+    if (jiraAuthType === JiraAuthType.BASIC && !jiraEmail.trim()) {
+      showToast('Jira email is required for basic auth', 'error');
+      return;
+    }
+    if (!jiraHasConfig && !jiraApiToken.trim()) {
+      showToast('API token is required for first-time setup', 'error');
+      return;
+    }
+
+    setJiraLoading(true);
+    try {
+      await jiraIntegrationApi.upsert(selectedProjectId, {
+        jiraDomain: jiraDomain.trim(),
+        authType: jiraAuthType,
+        jiraEmail: jiraAuthType === JiraAuthType.BASIC ? jiraEmail.trim() : undefined,
+        jiraApiToken: jiraApiToken.trim() || undefined,
+        jiraProjectKey: jiraProjectKey.trim() || undefined,
+      });
+
+      const mappings = statuses
+        .map((status) => ({
+          todoStatusId: status.id,
+          jiraTransitionId: jiraMappings[status.id]?.jiraTransitionId?.trim() || '',
+          jiraTransitionName: jiraMappings[status.id]?.jiraTransitionName?.trim() || undefined,
+        }))
+        .filter((mapping) => mapping.jiraTransitionId);
+
+      await jiraIntegrationApi.upsertTransitionMappings(selectedProjectId, { mappings });
+      setJiraApiToken('');
+      setJiraHasConfig(true);
+      showToast('Jira settings saved', 'success');
+    } catch (err) {
+      console.error('Failed to save Jira settings:', err);
+      showToast('Failed to save Jira settings', 'error');
+    } finally {
+      setJiraLoading(false);
+    }
+  };
+
+  const handleTestJiraConnection = async () => {
+    if (!selectedProjectId) return;
+    setJiraLoading(true);
+    try {
+      const result = await jiraIntegrationApi.test(selectedProjectId);
+      showToast(`Connected to Jira${result.displayName ? ` as ${result.displayName}` : ''}`, 'success');
+    } catch {
+      showToast('Jira connection failed', 'error');
+    } finally {
+      setJiraLoading(false);
+    }
+  };
+
+  const handleDisconnectJira = async () => {
+    if (!selectedProjectId) return;
+    setJiraLoading(true);
+    try {
+      await jiraIntegrationApi.delete(selectedProjectId);
+      resetJiraForm();
+      showToast('Jira disconnected for this project', 'success');
+    } catch {
+      showToast('Failed to disconnect Jira', 'error');
+    } finally {
+      setJiraLoading(false);
+    }
+  };
+
   const handleAddCard = async (data: Omit<CreateTodoReq, 'projectId'>) => {
     if (!selectedProjectId) return;
     try { await todoApi.create({ ...data, projectId: selectedProjectId }); setAddingCardForColumn(null); showToast('Card created!', 'success'); loadData(selectedProjectId); }
@@ -263,6 +392,7 @@ export const TodoBoard: React.FC = () => {
     setEditAiSummary(todo.aiSummary || '');
     setEditGeneratedByAi(todo.generatedByAi || false);
     setEditExternalLinks(todo.externalLinks || []);
+    setEditJiraIssueKey(todo.jiraIssueKey || '');
   };
 
   const handleSaveEdit = async () => {
@@ -278,6 +408,11 @@ export const TodoBoard: React.FC = () => {
         generatedByAi: editGeneratedByAi,
         externalLinks: editExternalLinks
       });
+      const nextJiraIssueKey = editJiraIssueKey.trim().toUpperCase();
+      const currentJiraIssueKey = editingTodo.jiraIssueKey || '';
+      if (nextJiraIssueKey !== currentJiraIssueKey) {
+        await todoApi.linkJiraIssue(editingTodo.id, { jiraIssueKey: nextJiraIssueKey });
+      }
       setEditingTodo(null); showToast('Card updated!', 'success'); loadData(selectedProjectId!);
     } catch { showToast('Failed to update card', 'error'); }
   };
@@ -298,7 +433,16 @@ export const TodoBoard: React.FC = () => {
 
     const { cardId, toColumnId, fromColumnId } = move;
     if (toColumnId !== fromColumnId) {
-      try { await todoApi.update(cardId, { statusId: toColumnId }); }
+      try {
+        const updatedTodo = await todoApi.update(cardId, { statusId: toColumnId });
+        if (updatedTodo.jiraIssueKey && updatedTodo.jiraSyncStatus === 'FAILED') {
+          showToast('Card moved, but Jira sync failed. Check the transition id and Jira workflow.', 'error');
+          loadData(selectedProjectId!);
+        } else if (updatedTodo.jiraIssueKey && updatedTodo.jiraSyncStatus === 'PENDING') {
+          showToast('Card moved, but Jira sync is pending. Check Jira integration and status mapping.', 'warning');
+          loadData(selectedProjectId!);
+        }
+      }
       catch { showToast('Failed to move card', 'error'); loadData(selectedProjectId!); }
     }
   };
@@ -360,6 +504,7 @@ export const TodoBoard: React.FC = () => {
           <span className="todo-board-count">{totalTasks} tasks</span>
         </div>
         <div className="todo-board-header-right">
+          <button className="btn-ghost" onClick={handleOpenJiraSettings} disabled={!selectedProjectId}><Settings size={16} /> Jira Settings</button>
           <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Add Column</button>
         </div>
       </div>
@@ -440,6 +585,11 @@ export const TodoBoard: React.FC = () => {
             <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
             <div className="auth-field"><label>Due Date</label><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} /></div>
           </div>
+          <div className="auth-field">
+            <label>Jira Issue Key</label>
+            <input type="text" value={editJiraIssueKey} onChange={(e) => setEditJiraIssueKey(e.target.value.toUpperCase())} placeholder="PROJ-123" />
+            <small>Used to sync status changes with Jira. Leave blank to unlink.</small>
+          </div>
           <div className="auth-field"><label>Tags (comma separated)</label><input type="text" value={editTagsStr} onChange={(e) => setEditTagsStr(e.target.value)} placeholder="bug, frontend, urgent" /></div>
           <div className="auth-field"><label>AI Summary</label><textarea value={editAiSummary} onChange={(e) => setEditAiSummary(e.target.value)} rows={2} placeholder="Brief AI summary..." /></div>
           <div className="auth-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -464,6 +614,41 @@ export const TodoBoard: React.FC = () => {
             <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '4px 8px' }} onClick={() => setEditExternalLinks([...editExternalLinks, { name: '', url: '' }])}>
               <Plus size={14} /> Add Link
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showJiraSettings} onClose={() => setShowJiraSettings(false)} title="Jira Settings" size="lg"
+        footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setShowJiraSettings(false)}>Close</button>{jiraHasConfig && <button className="btn-danger" onClick={handleDisconnectJira} disabled={jiraLoading}>Disconnect</button>}<button className="btn-ghost" onClick={handleTestJiraConnection} disabled={jiraLoading || !jiraHasConfig}>Test Connection</button><button className="btn-primary" onClick={handleSaveJiraSettings} disabled={jiraLoading}>{jiraLoading ? 'Saving...' : 'Save Jira Settings'}</button></div>}
+      >
+        <div className="todo-jira-settings">
+          <div className="todo-jira-section">
+            <h4>Project Connection</h4>
+            <p>Configure Jira for the selected project only. Leave API token blank to keep the existing token.</p>
+            <div className="todo-edit-row">
+              <div className="auth-field"><label>Jira Domain</label><input type="url" value={jiraDomain} onChange={(e) => setJiraDomain(e.target.value)} placeholder="https://company.atlassian.net" /></div>
+              <div className="auth-field"><label>Jira Project Key</label><input type="text" value={jiraProjectKey} onChange={(e) => setJiraProjectKey(e.target.value.toUpperCase())} placeholder="PROJ" /></div>
+            </div>
+            <div className="todo-edit-row">
+              <div className="auth-field"><label>Auth Type</label><select value={jiraAuthType} onChange={(e) => setJiraAuthType(e.target.value as JiraAuthType)}><option value={JiraAuthType.BASIC}>Basic</option><option value={JiraAuthType.BEARER}>Bearer</option></select></div>
+              {jiraAuthType === JiraAuthType.BASIC && <div className="auth-field"><label>Jira Email</label><input type="email" value={jiraEmail} onChange={(e) => setJiraEmail(e.target.value)} placeholder="you@company.com" /></div>}
+            </div>
+            <div className="auth-field"><label>API Token</label><input type="password" value={jiraApiToken} onChange={(e) => setJiraApiToken(e.target.value)} placeholder={jiraHasConfig ? 'Leave blank to keep existing token' : 'Required for first-time setup'} /></div>
+          </div>
+
+          <div className="todo-jira-section">
+            <h4>Status Transition Mappings</h4>
+            <p>Map each local board column to a Jira transition id. Empty rows are ignored.</p>
+            <div className="todo-jira-mappings">
+              {statuses.map((status) => (
+                <div className="todo-jira-mapping-row" key={status.id}>
+                  <div className="todo-jira-status"><span className="todo-column-dot" style={{ backgroundColor: status.color || '#6366f1' }} />{status.name}</div>
+                  <input type="text" value={jiraMappings[status.id]?.jiraTransitionId || ''} onChange={(e) => setJiraMappings((prev) => ({ ...prev, [status.id]: { jiraTransitionId: e.target.value, jiraTransitionName: prev[status.id]?.jiraTransitionName || '' } }))} placeholder="Transition ID" />
+                  <input type="text" value={jiraMappings[status.id]?.jiraTransitionName || ''} onChange={(e) => setJiraMappings((prev) => ({ ...prev, [status.id]: { jiraTransitionId: prev[status.id]?.jiraTransitionId || '', jiraTransitionName: e.target.value } }))} placeholder="Transition name" />
+                </div>
+              ))}
+              {statuses.length === 0 && <p>No columns yet. Create columns before adding transition mappings.</p>}
+            </div>
           </div>
         </div>
       </Modal>

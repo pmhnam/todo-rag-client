@@ -4,6 +4,7 @@ import type {
   TodoStatus,
   CreateTodoReq,
   UpdateTodoReq,
+  LinkJiraIssueReq,
   CreateTodoStatusReq,
   UpdateTodoStatusReq,
   ListTodoParams,
@@ -47,6 +48,9 @@ export const todoApi = {
 
   update: (id: string, data: UpdateTodoReq) =>
     apiClient.patch<Todo>(`/todos/${id}`, data).then((r) => r.data),
+
+  linkJiraIssue: (id: string, data: LinkJiraIssueReq) =>
+    apiClient.patch<Todo>(`/todos/${id}/jira-link`, data).then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/todos/${id}`),
 };
