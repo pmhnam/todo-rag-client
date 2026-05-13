@@ -275,6 +275,13 @@ export interface ContextChunk {
 export interface ChatRes {
   response: string;
   contextChunks: ContextChunk[];
+  toolCalls?: AgentToolCall[];
+}
+
+export interface AgentToolCall {
+  toolName: string;
+  input: unknown;
+  output?: unknown;
 }
 
 export interface SearchResult {

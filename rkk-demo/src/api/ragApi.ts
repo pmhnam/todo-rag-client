@@ -14,11 +14,17 @@ export const ragApi = {
       .get<ChatMessage[]>(`/rag/conversations/${conversationId}/messages`)
       .then((r) => r.data),
 
-  sendMessage: (conversationId: string, message: string, topK?: number) =>
+  sendMessage: (
+    conversationId: string,
+    message: string,
+    topK?: number,
+    projectId?: string,
+  ) =>
     apiClient
       .post<ChatRes>(`/rag/conversations/${conversationId}/chat`, {
         message,
         topK,
+        projectId,
       })
       .then((r) => r.data),
 

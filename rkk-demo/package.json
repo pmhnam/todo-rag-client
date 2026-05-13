@@ -19,7 +19,9 @@
     "react-dom": "^18.2.0",
     "react-i18next": "^15.6.1",
     "react-kanban-kit": "^0.0.2-beta.7",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^6.28.0",
+    "remark-gfm": "^4.0.1",
     "sass": "^1.89.2"
   },
   "devDependencies": {

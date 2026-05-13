@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ragApi } from '../../api/ragApi';
+import { projectApi } from '../../api/projectApi';
 import { useToast } from '../../components/Toast';
 import { Spinner } from '../../components/Spinner';
-import type { Conversation, ChatMessage, ContextChunk } from '../../api/types';
+import type { AgentToolCall, Conversation, ChatMessage, ContextChunk, Project } from '../../api/types';
 import {
   MessageSquarePlus,
   Send,
@@ -24,7 +27,10 @@ export const AiChat: React.FC = () => {
   const [isLoadingConvs, setIsLoadingConvs] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [contextChunks, setContextChunks] = useState<ContextChunk[]>([]);
+  const [toolCalls, setToolCalls] = useState<AgentToolCall[]>([]);
   const [showContext, setShowContext] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -47,6 +53,22 @@ export const AiChat: React.FC = () => {
     loadConversations();
   }, [loadConversations]);
 
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const res = await projectApi.getAll({ page: 1, limit: 100 });
+        const fetchedProjects = res.data || [];
+        setProjects(fetchedProjects);
+        if (fetchedProjects.length > 0) {
+          setSelectedProjectId((current) => current || fetchedProjects[0].id);
+        }
+      } catch {
+        showToast('Failed to load projects', 'error');
+      }
+    };
+    loadProjects();
+  }, [showToast]);
+
   // ─── Load messages for active conversation ───────
 
   useEffect(() => {
@@ -59,6 +81,7 @@ export const AiChat: React.FC = () => {
       try {
         const msgs = await ragApi.getMessages(activeConvId);
         setMessages(msgs);
+        setToolCalls([]);
       } catch {
         showToast('Failed to load messages', 'error');
       } finally {
@@ -82,6 +105,7 @@ export const AiChat: React.FC = () => {
       setActiveConvId(conv.id);
       setMessages([]);
       setContextChunks([]);
+      setToolCalls([]);
       showToast('New conversation created', 'success');
     } catch {
       showToast('Failed to create conversation', 'error');
@@ -122,7 +146,12 @@ export const AiChat: React.FC = () => {
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const res = await ragApi.sendMessage(convId, userMessage);
+      const res = await ragApi.sendMessage(
+        convId,
+        userMessage,
+        undefined,
+        selectedProjectId || undefined,
+      );
 
       const assistantMsg: ChatMessage = {
         id: `resp-${Date.now()}`,
@@ -132,6 +161,7 @@ export const AiChat: React.FC = () => {
       };
       setMessages((prev) => [...prev, assistantMsg]);
       setContextChunks(res.contextChunks || []);
+      setToolCalls(res.toolCalls || []);
     } catch {
       showToast('Failed to get AI response. Is the LLM service running?', 'error');
     } finally {
@@ -150,6 +180,7 @@ export const AiChat: React.FC = () => {
       if (activeConvId === convId) {
         setActiveConvId(null);
         setMessages([]);
+        setToolCalls([]);
       }
       showToast('Conversation deleted', 'success');
     } catch {
@@ -220,7 +251,18 @@ export const AiChat: React.FC = () => {
           <div className="ai-chat-welcome">
             <Sparkles size={48} className="ai-chat-welcome-icon" />
             <h2>AI Assistant</h2>
-            <p>Ask questions about your tasks, posts, and data. Powered by RAG.</p>
+            <p>Ask me to find, create, update, or move tasks. Powered by AI agent tools.</p>
+            {projects.length > 0 && (
+              <select
+                className="ai-chat-project-select"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.name}</option>
+                ))}
+              </select>
+            )}
             <button className="btn-primary" onClick={handleNewConversation}>
               <MessageSquarePlus size={16} /> Start New Chat
             </button>
@@ -229,6 +271,20 @@ export const AiChat: React.FC = () => {
           <>
             {/* Messages */}
             <div className="ai-chat-messages">
+              {projects.length > 0 && (
+                <div className="ai-chat-project-bar">
+                  <span>Project</span>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    disabled={isSending}
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {isLoadingMessages ? (
                 <div className="ai-chat-messages-loading">
                   <Spinner size="md" />
@@ -246,7 +302,11 @@ export const AiChat: React.FC = () => {
                       <div className="ai-chat-message-role">
                         {msg.role === 'user' ? 'You' : 'AI Assistant'}
                       </div>
-                      <div className="ai-chat-message-text">{msg.content}</div>
+                      <div className="ai-chat-message-text">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -293,6 +353,18 @@ export const AiChat: React.FC = () => {
               </div>
             )}
 
+            {toolCalls.length > 0 && (
+              <div className="ai-chat-tools">
+                <div className="ai-chat-tools-title">Agent actions</div>
+                {toolCalls.map((call, index) => (
+                  <div key={`${call.toolName}-${index}`} className="ai-chat-tool-item">
+                    <span>{call.toolName}</span>
+                    <small>{call.output ? 'completed' : 'started'}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Input */}
             <div className="ai-chat-input-area">
               <div className="ai-chat-input-wrapper">
@@ -301,7 +373,7 @@ export const AiChat: React.FC = () => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask anything about your data..."
+                  placeholder="Ask me to create, update, move, or explain tasks..."
                   rows={1}
                   disabled={isSending}
                 />
