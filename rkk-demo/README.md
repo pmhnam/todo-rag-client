@@ -1,4 +1,29 @@
-# React + TypeScript + Vite
+# React Kanban Kit Demo
+
+## Docker Compose
+
+The demo reads the API endpoint from runtime config, so you can change `.env` and restart the container without rebuilding the frontend image.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Configure the API endpoint in `rkk-demo/.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:3000/api/v1
+```
+
+After changing `.env`, restart the service:
+
+```bash
+docker compose up -d
+```
+
+The app is available at `http://localhost:8080`.
+
+## Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

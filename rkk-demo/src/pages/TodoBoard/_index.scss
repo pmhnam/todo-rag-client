@@ -345,6 +345,11 @@
     gap: 12px;
   }
 
+  .todo-board-header-left {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
   .todo-board-header-right,
   .todo-edit-row {
     width: 100%;

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
 import { todoApi, todoStatusApi } from '../../api/todoApi';
-import { projectApi } from '../../api/projectApi';
 import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, Project } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority } from '../../api/types';
+import { useProjects } from '../../contexts/useProjects';
 import {
   Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings
 } from 'lucide-react';
@@ -182,8 +183,8 @@ const AddCardForm: React.FC<{
 // ─── Main TodoBoard Page ───────────────────────────────
 
 export const TodoBoard: React.FC = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { projects, selectedProjectId, selectedProject, isLoading: isProjectLoading, selectProject } = useProjects();
   const [statuses, setStatuses] = useState<TodoStatus[]>([]);
   const [todosByStatus, setTodosByStatus] = useState<Map<string, Todo[]>>(new Map());
   const [dataSource, setDataSource] = useState<BoardData | null>(null);
@@ -215,24 +216,6 @@ export const TodoBoard: React.FC = () => {
 
   const { showToast } = useToast();
 
-  const loadProjects = useCallback(async () => {
-    try {
-      const res = await projectApi.getAll({ page: 1, limit: 100 });
-      if (res.data && res.data.length > 0) {
-        setProjects(res.data);
-        setSelectedProjectId(res.data[0].id);
-      } else {
-        const newProject = await projectApi.create({ name: 'My First Board' });
-        setProjects([newProject]);
-        setSelectedProjectId(newProject.id);
-      }
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-      showToast('Failed to load projects', 'error');
-      setIsLoading(false);
-    }
-  }, [showToast]);
-
   const loadData = useCallback(async (projectId: string) => {
     setIsLoading(true);
     try {
@@ -257,13 +240,32 @@ export const TodoBoard: React.FC = () => {
     }
   }, [showToast]);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => {
+    if (isProjectLoading || projects.length === 0) return;
+
+    const projectIdFromUrl = searchParams.get('projectId');
+    const urlProjectExists = projectIdFromUrl && projects.some((project) => project.id === projectIdFromUrl);
+    if (urlProjectExists) {
+      if (selectedProjectId !== projectIdFromUrl) {
+        selectProject(projectIdFromUrl);
+      }
+      return;
+    }
+
+    const nextProjectId = selectedProjectId && projects.some((project) => project.id === selectedProjectId)
+      ? selectedProjectId
+      : projects[0].id;
+    selectProject(nextProjectId);
+    setSearchParams({ projectId: nextProjectId }, { replace: true });
+  }, [isProjectLoading, projects, searchParams, selectedProjectId, selectProject, setSearchParams]);
 
   useEffect(() => { 
     if (selectedProjectId) {
       loadData(selectedProjectId); 
+    } else if (!isProjectLoading) {
+      setIsLoading(false);
     }
-  }, [selectedProjectId, loadData]);
+  }, [isProjectLoading, selectedProjectId, loadData]);
 
   const resetJiraForm = () => {
     setJiraHasConfig(false);
@@ -473,7 +475,7 @@ export const TodoBoard: React.FC = () => {
     } catch { showToast('Failed to reorder columns', 'error'); loadData(selectedProjectId!); }
   };
 
-  if (isLoading) {
+  if (isProjectLoading || isLoading) {
     return <div className="todo-board-loading"><Spinner size="lg" /><p>Loading your board...</p></div>;
   }
 
@@ -483,24 +485,8 @@ export const TodoBoard: React.FC = () => {
   return (
     <div className="todo-board">
       <div className="todo-board-header">
-        <div className="todo-board-header-left" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <select 
-            value={selectedProjectId || ''} 
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            style={{ 
-              padding: '6px 12px', 
-              fontSize: '18px', 
-              fontWeight: 'bold', 
-              border: 'none', 
-              backgroundColor: 'transparent',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+        <div className="todo-board-header-left">
+          <h1>{selectedProject?.name || 'Board'}</h1>
           <span className="todo-board-count">{totalTasks} tasks</span>
         </div>
         <div className="todo-board-header-right">

@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+dist-ssr
+rkk-demo/node_modules
+rkk-demo/dist
+rkk-demo/dist-ssr
+*.log
+.env
+.env.*
+!rkk-demo/.env.example
