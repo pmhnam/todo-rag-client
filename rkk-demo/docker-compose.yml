@@ -1,5 +1,6 @@
 services:
   rkk-demo:
+    platform: linux/amd64
     build:
       context: ..
       dockerfile: rkk-demo/Dockerfile
