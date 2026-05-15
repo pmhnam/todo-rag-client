@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { LogOut, Mail, User as UserIcon, Calendar, Shield } from 'lucide-react';

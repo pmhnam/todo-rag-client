@@ -10,25 +10,9 @@ export const Sidebar: React.FC = () => {
       <div className="rkk-demo-sidebar-content">
         <div className="rkk-demo-sidebar-section">
           <h3 className="rkk-demo-sidebar-title">
-            {t("navigation.boardExamples")}
+            {t("navigation.myWorkspace")}
           </h3>
           <Navigation />
-        </div>
-
-        <div className="rkk-demo-sidebar-section">
-          <h3 className="rkk-demo-sidebar-title">
-            {t("navigation.documentation")}
-          </h3>
-          <nav className="rkk-demo-sidebar-nav">
-            <a
-              href="https://github.com/braiekhazem/react-kanban-kit/?tab=readme-ov-file#react-kanban-kit"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rkk-demo-sidebar-nav-item"
-            >
-              {t("navigation.documentation")}
-            </a>
-          </nav>
         </div>
       </div>
     </aside>

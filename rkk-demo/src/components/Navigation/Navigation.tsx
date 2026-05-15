@@ -1,43 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import {
-  Kanban,
-  Layers,
-  GitBranch,
-  ScrollText,
   LayoutDashboard,
   MessageSquare,
   UserCircle,
 } from "lucide-react";
-
-const demoNavigationItems = [
-  {
-    path: "/",
-    labelKey: "navigation.overview",
-    icon: Kanban,
-    descriptionKey: "navigation.overviewDescription",
-  },
-  {
-    path: "/trello",
-    labelKey: "navigation.trelloStyle",
-    icon: Layers,
-    descriptionKey: "navigation.trelloDescription",
-  },
-  {
-    path: "/clickup",
-    labelKey: "navigation.clickupStyle",
-    icon: GitBranch,
-    descriptionKey: "navigation.clickupDescription",
-  },
-  {
-    path: "/infinite-scroll",
-    labelKey: "navigation.infiniteScroll",
-    icon: ScrollText,
-    descriptionKey: "navigation.infiniteScrollDescription",
-  },
-];
 
 const workspaceNavigationItems = [
   {
@@ -64,7 +33,7 @@ export const Navigation: React.FC = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
 
-  const renderNavItems = (items: typeof demoNavigationItems) =>
+  const renderNavItems = (items: typeof workspaceNavigationItems) =>
     items.map((item) => {
       const IconComponent = item.icon;
       return (
@@ -94,15 +63,8 @@ export const Navigation: React.FC = () => {
   return (
     <nav className="rkk-demo-navigation">
       {isAuthenticated && (
-        <>
-          <div className="rkk-demo-navigation-section-label">
-            {t("navigation.myWorkspace")}
-          </div>
-          {renderNavItems(workspaceNavigationItems)}
-          <div className="rkk-demo-navigation-divider" />
-        </>
+        renderNavItems(workspaceNavigationItems)
       )}
-      {renderNavItems(demoNavigationItems)}
     </nav>
   );
 };

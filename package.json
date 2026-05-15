@@ -44,8 +44,8 @@
     "test": "jest --watchAll --coverage",
     "dev": "vite",
     "build": "tsc && vite build",
-    "demo": "cd demo && npm run dev",
-    "build-demo": "cd demo && npm run build"
+    "demo": "cd rkk-demo && npm run dev",
+    "build-demo": "cd rkk-demo && npm run build"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.5.0",

@@ -23,23 +23,22 @@
     "strictFunctionTypes": false,
     "useUnknownInCatchVariables": false,
 
-     // No unused code 
-     "noUnusedLocals": false,
-     "noUnusedParameters": false,
-     "allowUnusedLabels": true,
-     "allowUnreachableCode": true,
- 
-     // No implicit code 
-     "noImplicitOverride": false,
-     "noImplicitReturns": false,
- 
-     // Others
-     "noUncheckedIndexedAccess": false,
-     "noPropertyAccessFromIndexSignature": false,
-     "noFallthroughCasesInSwitch": false,
-     "exactOptionalPropertyTypes": false,
-     "forceConsistentCasingInFileNames": true,
-     "declaration": true,
+    // No unused code
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "allowUnusedLabels": true,
+    "allowUnreachableCode": true,
+
+    // No implicit code
+    "noImplicitOverride": false,
+    "noImplicitReturns": false,
+
+    // Others
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noFallthroughCasesInSwitch": false,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
 
     "baseUrl": ".",
     "paths": {
@@ -49,9 +48,6 @@
       "@utils/*": ["./src/utils/*"]
     }
   },
-  "ts-node": {
-    "esm": true
-  },
-  "include": ["src", "./src/index.ts", "docs/app", "src/**/*.d.ts"],
+  "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

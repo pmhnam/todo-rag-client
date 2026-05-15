@@ -67,7 +67,7 @@ export interface Project {
   name: string;
   description?: string;
   userId: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

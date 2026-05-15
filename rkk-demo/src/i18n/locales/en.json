@@ -1,24 +1,10 @@
 {
   "header": {
-    "title": "React Kanban Kit",
-    "subtitle": "Demo Showcase",
-    "github": "GitHub",
-    "npm": "NPM",
+    "title": "Task Master",
+    "subtitle": "AI-Powered Task Management",
     "settings": "Settings"
   },
   "navigation": {
-    "boardExamples": "Board Examples",
-    "documentation": "Documentation",
-    "overview": "Overview",
-    "overviewDescription": "Basic Kanban example",
-    "trelloStyle": "Trello Style",
-    "trelloDescription": "Trello-inspired board design",
-    "clickupStyle": "ClickUp Style",
-    "clickupDescription": "ClickUp-inspired board design",
-    "tamStyle": "Tam Style",
-    "tamDescription": "Tam-inspired board design",
-    "infiniteScroll": "Infinite Scroll",
-    "infiniteScrollDescription": "Paginated loading as you scroll",
     "myWorkspace": "My Workspace",
     "myBoard": "My Board",
     "myBoardDescription": "Your personal Kanban board",
@@ -27,28 +13,7 @@
     "profile": "Profile",
     "profileDescription": "Account settings & info"
   },
-  "language": {
-    "english": "English",
-    "french": "Français",
-    "arabic": "العربية",
-    "switchLanguage": "Switch Language"
-  },
   "pages": {
-    "overview": {
-      "title": "React Kanban Kit Overview",
-      "description": "A powerful and flexible Kanban board component for React applications",
-      "features": "Features",
-      "gettingStarted": "Getting Started",
-      "examples": "Examples"
-    },
-    "trello": {
-      "title": "Trello Style Board",
-      "description": "Experience the familiar Trello board layout with drag-and-drop functionality"
-    },
-    "clickup": {
-      "title": "ClickUp Style Board",
-      "description": "Modern task management interface inspired by ClickUp's design"
-    },
     "board": {
       "title": "My Board",
       "description": "Manage your tasks with drag-and-drop"

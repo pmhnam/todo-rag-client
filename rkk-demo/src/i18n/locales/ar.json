@@ -2,45 +2,29 @@
   "header": {
     "title": "React Kanban Kit",
     "subtitle": "معرض التوضيح",
-    "github": "GitHub",
-    "npm": "NPM",
     "settings": "الإعدادات"
   },
   "navigation": {
-    "boardExamples": "أمثلة اللوحات",
-    "documentation": "التوثيق",
-    "overview": "نظرة عامة",
-    "overviewDescription": "مثال كانبان أساسي",
-    "trelloStyle": "نمط تريلو",
-    "trelloDescription": "تصميم لوحة مستوحى من تريلو",
-    "clickupStyle": "نمط كليك أب",
-    "clickupDescription": "تصميم لوحة مستوحى من كليك أب",
-    "tamStyle": "نمط تام",
-    "tamDescription": "تصميم لوحة مستوحى من تام",
-    "infiniteScroll": "التمرير اللانهائي",
-    "infiniteScrollDescription": "تحميل مرقّم عند التمرير"
-  },
-  "language": {
-    "english": "English",
-    "french": "Français",
-    "arabic": "العربية",
-    "switchLanguage": "تغيير اللغة"
+    "myWorkspace": "مساحة العمل الخاصة بي",
+    "myBoard": "لوحتي",
+    "myBoardDescription": "لوحة كانبان الشخصية الخاصة بك",
+    "aiChat": "دردشة الذكاء الاصطناعي",
+    "aiChatDescription": "تحدث مع بياناتك باستخدام الذكاء الاصطناعي",
+    "profile": "الملف الشخصي",
+    "profileDescription": "إعدادات ومعلومات الحساب"
   },
   "pages": {
-    "overview": {
-      "title": "نظرة عامة على React Kanban Kit",
-      "description": "مكون لوحة كانبان قوي ومرن لتطبيقات React",
-      "features": "المميزات",
-      "gettingStarted": "البدء",
-      "examples": "أمثلة"
+    "board": {
+      "title": "لوحتي",
+      "description": "إدارة مهامك بالسحب والإفلات"
     },
-    "trello": {
-      "title": "لوحة نمط تريلو",
-      "description": "اختبر تخطيط لوحة تريلو المألوف مع وظيفة السحب والإفلات"
+    "chat": {
+      "title": "دردشة الذكاء الاصطناعي",
+      "description": "اطرح أسئلة حول مهامك وبياناتك"
     },
-    "clickup": {
-      "title": "لوحة نمط كليك أب",
-      "description": "واجهة إدارة المهام الحديثة المستوحاة من تصميم كليك أب"
+    "profile": {
+      "title": "الملف الشخصي",
+      "description": "معلومات حسابك"
     }
   },
   "common": {

@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/useAuth";
 import { useToast } from "../Toast";
-import { Settings, Github, ExternalLink, LogOut, UserCircle, LogIn } from "lucide-react";
-import { LanguageSwitcher } from "../LanguageSwitcher";
+import { Settings, LogOut, UserCircle, LogIn } from "lucide-react";
 
 export const Header: React.FC = () => {
   const { t } = useTranslation();
@@ -60,30 +59,6 @@ export const Header: React.FC = () => {
 
         <div className="rkk-demo-header-right">
           <nav className="rkk-demo-header-nav">
-            <a
-              href="https://github.com/braiekhazem/react-kanban-kit"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rkk-demo-header-nav-item"
-              title="View on GitHub"
-            >
-              <Github size={20} />
-              <span>{t("header.github")}</span>
-            </a>
-
-            <a
-              href="https://www.npmjs.com/package/react-kanban-kit"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rkk-demo-header-nav-item"
-              title="View on NPM"
-            >
-              <ExternalLink size={20} />
-              <span>{t("header.npm")}</span>
-            </a>
-
-            <LanguageSwitcher />
-
             <button
               className="rkk-demo-header-nav-item"
               title={t("header.settings")}

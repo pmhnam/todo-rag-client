@@ -1,18 +1,11 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-
-export type ToastType = 'success' | 'error' | 'info' | 'warning';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ToastContext, type ToastType } from './ToastContext';
 
 interface ToastItem {
   id: number;
   message: string;
   type: ToastType;
 }
-
-interface ToastContextType {
-  showToast: (message: string, type?: ToastType) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 let toastId = 0;
 
@@ -73,12 +66,4 @@ const ToastItem: React.FC<{ toast: ToastItem; onRemove: (id: number) => void }> 
       <span className="rkk-toast-message">{toast.message}</span>
     </div>
   );
-};
-
-export const useToast = (): ToastContextType => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
 };
