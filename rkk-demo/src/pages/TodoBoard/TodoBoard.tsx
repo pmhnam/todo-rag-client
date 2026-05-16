@@ -403,8 +403,48 @@ export const TodoBoard: React.FC = () => {
 
   const handleAddCard = async (data: Omit<CreateTodoReq, 'projectId'>) => {
     if (!selectedProjectId) return;
-    try { await todoApi.create({ ...data, projectId: selectedProjectId }); setAddingCardForColumn(null); showToast('Card created!', 'success'); loadData(selectedProjectId, { showLoading: false }); }
-    catch { showToast('Failed to create card', 'error'); }
+
+    const previousTodosByStatus = todosByStatus;
+    const previousDataSource = dataSource;
+    const now = new Date().toISOString();
+    const existingTodos = todosByStatus.get(data.statusId) || [];
+    const optimisticTodo: Todo = {
+      id: `temp-${Date.now()}`,
+      projectId: selectedProjectId,
+      title: data.title,
+      description: data.description,
+      statusId: data.statusId,
+      priority: data.priority || 'MEDIUM',
+      position: existingTodos.length,
+      dueDate: data.dueDate,
+      jiraSyncStatus: 'NOT_LINKED',
+      createdBy: 'optimistic',
+      createdAt: now,
+      updatedAt: now,
+      tags: data.tags,
+      externalLinks: data.externalLinks,
+      aiSummary: data.aiSummary,
+      generatedByAi: data.generatedByAi,
+    };
+    const optimisticTodosByStatus = new Map(todosByStatus);
+    optimisticTodosByStatus.set(data.statusId, [...existingTodos, optimisticTodo]);
+
+    setAddingCardForColumn(null);
+    setTodosByStatus(optimisticTodosByStatus);
+    setDataSource(statusesToBoardData(statuses, optimisticTodosByStatus));
+    setBoardCache(selectedProjectId, { statuses, todosByStatus: optimisticTodosByStatus });
+
+    try {
+      await todoApi.create({ ...data, projectId: selectedProjectId });
+      showToast('Card created!', 'success');
+      await loadData(selectedProjectId, { showLoading: false });
+    }
+    catch {
+      setTodosByStatus(previousTodosByStatus);
+      setDataSource(previousDataSource);
+      setBoardCache(selectedProjectId, { statuses, todosByStatus: previousTodosByStatus });
+      showToast('Failed to create card', 'error');
+    }
   };
 
   const handleEditTodo = (todo: Todo) => {
@@ -437,7 +477,11 @@ export const TodoBoard: React.FC = () => {
       if (nextJiraIssueKey !== currentJiraIssueKey) {
         await todoApi.linkJiraIssue(editingTodo.id, { jiraIssueKey: nextJiraIssueKey });
       }
-      setEditingTodo(null); showToast('Card updated!', 'success'); loadData(selectedProjectId!);
+      setEditingTodo(null);
+      if (selectedProjectId) {
+        await loadData(selectedProjectId, { showLoading: false });
+      }
+      showToast('Card updated!', 'success');
     } catch { showToast('Failed to update card', 'error'); }
   };
 
