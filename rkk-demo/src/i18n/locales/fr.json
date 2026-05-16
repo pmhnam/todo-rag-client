@@ -6,6 +6,8 @@
   },
   "navigation": {
     "myWorkspace": "Mon Espace",
+    "dashboard": "Tableau de bord",
+    "dashboardDescription": "Vue d'ensemble de l'espace",
     "myBoard": "Mon Tableau",
     "myBoardDescription": "Votre tableau Kanban personnel",
     "aiChat": "Chat IA",

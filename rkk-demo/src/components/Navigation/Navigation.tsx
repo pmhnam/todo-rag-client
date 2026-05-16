@@ -3,12 +3,19 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/useAuth";
 import {
+  BarChart3,
   LayoutDashboard,
   MessageSquare,
   UserCircle,
 } from "lucide-react";
 
 const workspaceNavigationItems = [
+  {
+    path: "/dashboard",
+    labelKey: "navigation.dashboard",
+    icon: BarChart3,
+    descriptionKey: "navigation.dashboardDescription",
+  },
   {
     path: "/board",
     labelKey: "navigation.myBoard",

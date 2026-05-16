@@ -1,5 +1,6 @@
 @use "../global/assets/styles/abstracts" as *;
 @forward "./Login/index";
+@forward "./Dashboard/index";
 @forward "./TodoBoard/index";
 @forward "./AiChat/index";
 @forward "./Profile/index";

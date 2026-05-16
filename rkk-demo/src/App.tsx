@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import {
   Login,
   Register,
+  Dashboard,
   TodoBoard,
   AiChat,
   Profile,
@@ -25,9 +26,17 @@ function App() {
 
               {/* Main layout pages */}
               <Route element={<Layout />}>
-                <Route path="/" element={<Navigate to="/board" replace />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
                 {/* Protected pages */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/board"
                   element={

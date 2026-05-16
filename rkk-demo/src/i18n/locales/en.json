@@ -6,6 +6,8 @@
   },
   "navigation": {
     "myWorkspace": "My Workspace",
+    "dashboard": "Dashboard",
+    "dashboardDescription": "Workspace health overview",
     "myBoard": "My Board",
     "myBoardDescription": "Your personal Kanban board",
     "aiChat": "AI Chat",

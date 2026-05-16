@@ -6,6 +6,8 @@
   },
   "navigation": {
     "myWorkspace": "مساحة العمل الخاصة بي",
+    "dashboard": "لوحة المعلومات",
+    "dashboardDescription": "نظرة عامة على مساحة العمل",
     "myBoard": "لوحتي",
     "myBoardDescription": "لوحة كانبان الشخصية الخاصة بك",
     "aiChat": "دردشة الذكاء الاصطناعي",
