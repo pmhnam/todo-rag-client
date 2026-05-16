@@ -5,6 +5,9 @@ import type {
   CreateTodoReq,
   UpdateTodoReq,
   LinkJiraIssueReq,
+  TodoComment,
+  CreateTodoCommentReq,
+  UpdateTodoCommentReq,
   ReorderTodosReq,
   CreateTodoStatusReq,
   UpdateTodoStatusReq,
@@ -60,4 +63,20 @@ export const todoApi = {
     apiClient.patch<void>('/todos/reorder', data).then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/todos/${id}`),
+};
+
+export const todoCommentApi = {
+  getAll: (todoId: string) =>
+    apiClient.get<TodoComment[]>(`/todos/${todoId}/comments`).then((r) => r.data),
+
+  create: (todoId: string, data: CreateTodoCommentReq) =>
+    apiClient.post<TodoComment>(`/todos/${todoId}/comments`, data).then((r) => r.data),
+
+  update: (todoId: string, commentId: string, data: UpdateTodoCommentReq) =>
+    apiClient
+      .patch<TodoComment>(`/todos/${todoId}/comments/${commentId}`, data)
+      .then((r) => r.data),
+
+  delete: (todoId: string, commentId: string) =>
+    apiClient.delete(`/todos/${todoId}/comments/${commentId}`),
 };

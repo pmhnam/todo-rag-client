@@ -163,6 +163,24 @@ export interface LinkJiraIssueReq {
   jiraIssueKey?: string | null;
 }
 
+export interface TodoComment {
+  id: string;
+  todoId: string;
+  userId: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTodoCommentReq {
+  content: string;
+}
+
+export interface UpdateTodoCommentReq {
+  content?: string;
+}
+
 export interface ListTodoParams {
   projectId: string;
   page?: number;

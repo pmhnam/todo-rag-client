@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
-import { todoApi, todoStatusApi } from '../../api/todoApi';
+import { todoApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
 import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -233,6 +233,11 @@ export const TodoBoard: React.FC = () => {
   const [editGeneratedByAi, setEditGeneratedByAi] = useState(false);
   const [editExternalLinks, setEditExternalLinks] = useState<{name: string, url: string}[]>([]);
   const [editJiraIssueKey, setEditJiraIssueKey] = useState('');
+  const [comments, setComments] = useState<TodoComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
   const [deletingTodo, setDeletingTodo] = useState<Todo | null>(null);
   const [showJiraSettings, setShowJiraSettings] = useState(false);
   const [jiraHasConfig, setJiraHasConfig] = useState(false);
@@ -514,6 +519,71 @@ export const TodoBoard: React.FC = () => {
     setEditGeneratedByAi(todo.generatedByAi || false);
     setEditExternalLinks(todo.externalLinks || []);
     setEditJiraIssueKey(todo.jiraIssueKey || '');
+    setNewComment('');
+    setEditingCommentId(null);
+    setEditingCommentContent('');
+    setCommentsLoading(true);
+    todoCommentApi.getAll(todo.id)
+      .then(setComments)
+      .catch(() => showToast('Failed to load comments', 'error'))
+      .finally(() => setCommentsLoading(false));
+  };
+
+  const handleAddComment = async () => {
+    if (!editingTodo || !newComment.trim()) return;
+
+    const content = newComment.trim();
+    const now = new Date().toISOString();
+    const tempComment: TodoComment = {
+      id: `temp-${Date.now()}`,
+      todoId: editingTodo.id,
+      userId: 'optimistic',
+      content,
+      createdBy: 'optimistic',
+      createdAt: now,
+      updatedAt: now,
+    };
+    const previousComments = comments;
+    setComments((current) => [...current, tempComment]);
+    setNewComment('');
+
+    try {
+      const saved = await todoCommentApi.create(editingTodo.id, { content });
+      setComments((current) => current.map((comment) => comment.id === tempComment.id ? saved : comment));
+    } catch {
+      setComments(previousComments);
+      setNewComment(content);
+      showToast('Failed to add comment', 'error');
+    }
+  };
+
+  const handleStartEditComment = (comment: TodoComment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentContent(comment.content);
+  };
+
+  const handleSaveComment = async (commentId: string) => {
+    if (!editingTodo || !editingCommentContent.trim()) return;
+    try {
+      const updated = await todoCommentApi.update(editingTodo.id, commentId, { content: editingCommentContent.trim() });
+      setComments((current) => current.map((comment) => comment.id === commentId ? updated : comment));
+      setEditingCommentId(null);
+      setEditingCommentContent('');
+    } catch {
+      showToast('Failed to update comment', 'error');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!editingTodo) return;
+    const previousComments = comments;
+    setComments((current) => current.filter((comment) => comment.id !== commentId));
+    try {
+      await todoCommentApi.delete(editingTodo.id, commentId);
+    } catch {
+      setComments(previousComments);
+      showToast('Failed to delete comment', 'error');
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -812,6 +882,57 @@ export const TodoBoard: React.FC = () => {
                 <div className="todo-detail-meta-grid">
                   <div className={`todo-detail-meta-card todo-card-jira-${editingTodo.jiraSyncStatus?.toLowerCase()}`}><span>Sync status</span><strong>{editingTodo.jiraSyncStatus}</strong></div>
                   {editingTodo.jiraIssueUrl && <a className="todo-detail-jira-link" href={editingTodo.jiraIssueUrl} target="_blank" rel="noopener noreferrer"><Link2 size={14} /> Open Jira issue</a>}
+                </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3><MessageSquare size={15} /> Comments</h3>
+                <div className="todo-comments">
+                  <div className="todo-comment-composer">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={3}
+                      placeholder="Add a comment..."
+                    />
+                    <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()}><Send size={14} /> Add Comment</button>
+                  </div>
+
+                  {commentsLoading ? (
+                    <div className="todo-comments-empty"><Spinner size="sm" /> Loading comments...</div>
+                  ) : comments.length === 0 ? (
+                    <div className="todo-comments-empty">No comments yet.</div>
+                  ) : (
+                    <div className="todo-comment-list">
+                      {comments.map((comment) => (
+                        <div className="todo-comment" key={comment.id}>
+                          <div className="todo-comment-meta">
+                            <span>{comment.createdBy === 'optimistic' ? 'You' : `User ${comment.userId.slice(0, 8)}`}</span>
+                            <time>{new Date(comment.createdAt).toLocaleString()}</time>
+                          </div>
+                          {editingCommentId === comment.id ? (
+                            <div className="todo-comment-edit">
+                              <textarea value={editingCommentContent} onChange={(e) => setEditingCommentContent(e.target.value)} rows={3} />
+                              <div className="todo-comment-actions">
+                                <button className="btn-ghost" onClick={() => { setEditingCommentId(null); setEditingCommentContent(''); }}>Cancel</button>
+                                <button className="btn-primary" onClick={() => handleSaveComment(comment.id)} disabled={!editingCommentContent.trim()}><Check size={14} /> Save</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p>{comment.content}</p>
+                              {!comment.id.startsWith('temp-') && (
+                                <div className="todo-comment-actions">
+                                  <button className="btn-ghost" onClick={() => handleStartEditComment(comment)}>Edit</button>
+                                  <button className="btn-ghost" onClick={() => handleDeleteComment(comment.id)}>Delete</button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
 
