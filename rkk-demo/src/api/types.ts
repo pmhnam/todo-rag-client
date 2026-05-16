@@ -167,6 +167,7 @@ export interface ListTodoParams {
   projectId: string;
   page?: number;
   limit?: number;
+  q?: string;
   statusId?: string;
   priority?: TodoPriority;
   jiraSyncStatus?: JiraSyncStatus;

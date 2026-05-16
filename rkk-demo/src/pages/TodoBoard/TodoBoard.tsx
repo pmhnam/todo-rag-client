@@ -7,10 +7,10 @@ import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -23,6 +23,7 @@ const DEFAULT_COLUMN_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6',
   '#f59e0b', '#ef4444', '#3b82f6', '#10b981',
 ];
+type DueDateFilter = 'ALL' | 'OVERDUE' | 'TODAY' | 'UPCOMING' | 'NO_DUE';
 
 function statusesToBoardData(
   statuses: TodoStatus[],
@@ -77,6 +78,26 @@ function boardDataToReorderColumns(data: BoardData) {
     statusId,
     orderedTodoIds: data[statusId]?.children || [],
   }));
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function matchesDueDateFilter(todo: Todo, filter: DueDateFilter) {
+  if (filter === 'ALL') return true;
+  if (!todo.dueDate) return filter === 'NO_DUE';
+
+  const dueDate = new Date(todo.dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDay = new Date(dueDate);
+  dueDay.setHours(0, 0, 0, 0);
+
+  if (filter === 'TODAY') return isSameDay(dueDay, today);
+  if (filter === 'OVERDUE') return dueDay < today;
+  if (filter === 'UPCOMING') return dueDay > today;
+  return true;
 }
 
 // ─── TodoCard ──────────────────────────────────────────
@@ -222,8 +243,14 @@ export const TodoBoard: React.FC = () => {
   const [jiraApiToken, setJiraApiToken] = useState('');
   const [jiraProjectKey, setJiraProjectKey] = useState('');
   const [jiraMappings, setJiraMappings] = useState<Record<string, { jiraTransitionId: string; jiraTransitionName: string }>>({});
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPriority, setFilterPriority] = useState<TodoPriority | 'ALL'>('ALL');
+  const [filterJiraStatus, setFilterJiraStatus] = useState<JiraSyncStatus | 'ALL'>('ALL');
+  const [filterDueDate, setFilterDueDate] = useState<DueDateFilter>('ALL');
 
   const { showToast } = useToast();
+  const hasActiveFilters = Boolean(searchQuery.trim()) || filterPriority !== 'ALL' || filterJiraStatus !== 'ALL' || filterDueDate !== 'ALL';
 
   const loadData = useCallback(async (projectId: string, options: { showLoading?: boolean } = {}) => {
     const { showLoading = true } = options;
@@ -235,12 +262,23 @@ export const TodoBoard: React.FC = () => {
 
       const todosMap = new Map<string, Todo[]>();
       for (const status of fetchedStatuses) {
-        const todosRes = await todoApi.getAll({ projectId, statusId: status.id, page: 1, limit: 100 });
-        todosMap.set(status.id, todosRes.data || []);
+        const todosRes = await todoApi.getAll({
+          projectId,
+          statusId: status.id,
+          page: 1,
+          limit: 100,
+          q: searchQuery.trim() || undefined,
+          priority: filterPriority === 'ALL' ? undefined : filterPriority,
+          jiraSyncStatus: filterJiraStatus === 'ALL' ? undefined : filterJiraStatus,
+        });
+        const filteredTodos = (todosRes.data || []).filter((todo) => matchesDueDateFilter(todo, filterDueDate));
+        todosMap.set(status.id, filteredTodos);
       }
       setTodosByStatus(todosMap);
       setDataSource(statusesToBoardData(fetchedStatuses, todosMap));
-      setBoardCache(projectId, { statuses: fetchedStatuses, todosByStatus: todosMap });
+      if (!hasActiveFilters) {
+        setBoardCache(projectId, { statuses: fetchedStatuses, todosByStatus: todosMap });
+      }
     } catch (err) {
       console.error('Failed to load board data:', err);
       showToast('Failed to load board. Please check API connection.', 'error');
@@ -249,7 +287,12 @@ export const TodoBoard: React.FC = () => {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [setBoardCache, showToast]);
+  }, [filterDueDate, filterJiraStatus, filterPriority, hasActiveFilters, searchQuery, setBoardCache, showToast]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
 
   useEffect(() => {
     if (isProjectLoading || projects.length === 0) return;
@@ -272,6 +315,11 @@ export const TodoBoard: React.FC = () => {
 
   useEffect(() => { 
     if (selectedProjectId) {
+      if (hasActiveFilters) {
+        loadData(selectedProjectId, { showLoading: false });
+        return;
+      }
+
       const cachedBoard = getBoardCache(selectedProjectId);
       if (cachedBoard) {
         setStatuses(cachedBoard.statuses);
@@ -285,7 +333,7 @@ export const TodoBoard: React.FC = () => {
     } else if (!isProjectLoading) {
       setIsLoading(false);
     }
-  }, [getBoardCache, isProjectLoading, selectedProjectId, loadData]);
+  }, [getBoardCache, hasActiveFilters, isProjectLoading, selectedProjectId, loadData]);
 
   const resetJiraForm = () => {
     setJiraHasConfig(false);
@@ -432,7 +480,9 @@ export const TodoBoard: React.FC = () => {
     setAddingCardForColumn(null);
     setTodosByStatus(optimisticTodosByStatus);
     setDataSource(statusesToBoardData(statuses, optimisticTodosByStatus));
-    setBoardCache(selectedProjectId, { statuses, todosByStatus: optimisticTodosByStatus });
+    if (!hasActiveFilters) {
+      setBoardCache(selectedProjectId, { statuses, todosByStatus: optimisticTodosByStatus });
+    }
 
     try {
       await todoApi.create({ ...data, projectId: selectedProjectId });
@@ -442,7 +492,9 @@ export const TodoBoard: React.FC = () => {
     catch {
       setTodosByStatus(previousTodosByStatus);
       setDataSource(previousDataSource);
-      setBoardCache(selectedProjectId, { statuses, todosByStatus: previousTodosByStatus });
+      if (!hasActiveFilters) {
+        setBoardCache(selectedProjectId, { statuses, todosByStatus: previousTodosByStatus });
+      }
       showToast('Failed to create card', 'error');
     }
   };
@@ -528,7 +580,9 @@ export const TodoBoard: React.FC = () => {
       setStatuses(nextStatuses);
       setTodosByStatus(nextTodosByStatus);
       setDataSource(statusesToBoardData(nextStatuses, nextTodosByStatus));
-      setBoardCache(selectedProjectId, { statuses: nextStatuses, todosByStatus: nextTodosByStatus });
+      if (!hasActiveFilters) {
+        setBoardCache(selectedProjectId, { statuses: nextStatuses, todosByStatus: nextTodosByStatus });
+      }
       setNewColumnName(''); setShowAddColumn(false); showToast('Column created!', 'success');
     } catch { showToast('Failed to create column', 'error'); }
   };
@@ -551,6 +605,14 @@ export const TodoBoard: React.FC = () => {
     } catch { showToast('Failed to reorder columns', 'error'); loadData(selectedProjectId!); }
   };
 
+  const resetFilters = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    setFilterPriority('ALL');
+    setFilterJiraStatus('ALL');
+    setFilterDueDate('ALL');
+  };
+
   if (isProjectLoading || isLoading) {
     return <div className="todo-board-loading"><Spinner size="lg" /><p>Loading your board...</p></div>;
   }
@@ -568,6 +630,42 @@ export const TodoBoard: React.FC = () => {
         <div className="todo-board-header-right">
           <button className="btn-ghost" onClick={handleOpenJiraSettings} disabled={!selectedProjectId}><Settings size={16} /> Jira Settings</button>
           <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Add Column</button>
+        </div>
+      </div>
+
+      <div className="todo-board-filters">
+        <div className="todo-board-search">
+          <Search size={16} />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search tasks by title..."
+          />
+        </div>
+        <div className="todo-board-filter-group">
+          <SlidersHorizontal size={16} />
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value as TodoPriority | 'ALL')}>
+            <option value="ALL">All priorities</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+          <select value={filterJiraStatus} onChange={(e) => setFilterJiraStatus(e.target.value as JiraSyncStatus | 'ALL')}>
+            <option value="ALL">All Jira statuses</option>
+            <option value="NOT_LINKED">Not linked</option>
+            <option value="SYNCED">Synced</option>
+            <option value="PENDING">Pending</option>
+            <option value="FAILED">Failed</option>
+          </select>
+          <select value={filterDueDate} onChange={(e) => setFilterDueDate(e.target.value as DueDateFilter)}>
+            <option value="ALL">All due dates</option>
+            <option value="OVERDUE">Overdue</option>
+            <option value="TODAY">Due today</option>
+            <option value="UPCOMING">Upcoming</option>
+            <option value="NO_DUE">No due date</option>
+          </select>
+          {hasActiveFilters && <button className="btn-ghost" onClick={resetFilters}>Clear filters</button>}
         </div>
       </div>
 
