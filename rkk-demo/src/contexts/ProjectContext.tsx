@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { projectApi } from '../api/projectApi';
 import type { Project } from '../api/types';
 import { useAuth } from './useAuth';
-import { ProjectContext } from './projectContext';
+import { ProjectContext, type BoardCacheEntry } from './projectContext';
 
 const DEFAULT_PROJECT_NAME = 'My First Board';
 
@@ -12,6 +12,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [boardCacheByProjectId, setBoardCacheByProjectId] = useState<Record<string, BoardCacheEntry>>({});
+  const boardCacheRef = useRef(boardCacheByProjectId);
+
+  useEffect(() => {
+    boardCacheRef.current = boardCacheByProjectId;
+  }, [boardCacheByProjectId]);
 
   const createDefaultProject = useCallback(async () => {
     const project = await projectApi.create({ name: DEFAULT_PROJECT_NAME });
@@ -51,6 +57,14 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSelectedProjectId(projectId);
   }, []);
 
+  const getBoardCache = useCallback((projectId: string) => {
+    return boardCacheRef.current[projectId];
+  }, []);
+
+  const setBoardCache = useCallback((projectId: string, cache: BoardCacheEntry) => {
+    setBoardCacheByProjectId((current) => ({ ...current, [projectId]: cache }));
+  }, []);
+
   const createProject = useCallback(async (name: string) => {
     setIsSaving(true);
     try {
@@ -78,6 +92,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsSaving(true);
     try {
       await projectApi.delete(projectId);
+      setBoardCacheByProjectId((current) => {
+        const remainingCache = { ...current };
+        delete remainingCache[projectId];
+        return remainingCache;
+      });
       const remainingProjects = projects.filter((project) => project.id !== projectId);
       if (remainingProjects.length > 0) {
         const nextProject = remainingProjects[0];
@@ -109,6 +128,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createProject,
         renameProject,
         deleteProject,
+        getBoardCache,
+        setBoardCache,
       }}
     >
       {children}

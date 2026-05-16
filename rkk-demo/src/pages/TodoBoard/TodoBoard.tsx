@@ -191,11 +191,12 @@ const AddCardForm: React.FC<{
 
 export const TodoBoard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, selectedProjectId, selectedProject, isLoading: isProjectLoading, selectProject } = useProjects();
-  const [statuses, setStatuses] = useState<TodoStatus[]>([]);
-  const [todosByStatus, setTodosByStatus] = useState<Map<string, Todo[]>>(new Map());
-  const [dataSource, setDataSource] = useState<BoardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { projects, selectedProjectId, selectedProject, isLoading: isProjectLoading, selectProject, getBoardCache, setBoardCache } = useProjects();
+  const initialBoardCache = selectedProjectId ? getBoardCache(selectedProjectId) : undefined;
+  const [statuses, setStatuses] = useState<TodoStatus[]>(() => initialBoardCache?.statuses || []);
+  const [todosByStatus, setTodosByStatus] = useState<Map<string, Todo[]>>(() => initialBoardCache?.todosByStatus || new Map());
+  const [dataSource, setDataSource] = useState<BoardData | null>(() => initialBoardCache ? statusesToBoardData(initialBoardCache.statuses, initialBoardCache.todosByStatus) : null);
+  const [isLoading, setIsLoading] = useState(() => !initialBoardCache);
   const [addingCardForColumn, setAddingCardForColumn] = useState<string | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
@@ -239,6 +240,7 @@ export const TodoBoard: React.FC = () => {
       }
       setTodosByStatus(todosMap);
       setDataSource(statusesToBoardData(fetchedStatuses, todosMap));
+      setBoardCache(projectId, { statuses: fetchedStatuses, todosByStatus: todosMap });
     } catch (err) {
       console.error('Failed to load board data:', err);
       showToast('Failed to load board. Please check API connection.', 'error');
@@ -247,7 +249,7 @@ export const TodoBoard: React.FC = () => {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [showToast]);
+  }, [setBoardCache, showToast]);
 
   useEffect(() => {
     if (isProjectLoading || projects.length === 0) return;
@@ -270,11 +272,20 @@ export const TodoBoard: React.FC = () => {
 
   useEffect(() => { 
     if (selectedProjectId) {
-      loadData(selectedProjectId); 
+      const cachedBoard = getBoardCache(selectedProjectId);
+      if (cachedBoard) {
+        setStatuses(cachedBoard.statuses);
+        setTodosByStatus(cachedBoard.todosByStatus);
+        setDataSource(statusesToBoardData(cachedBoard.statuses, cachedBoard.todosByStatus));
+        setIsLoading(false);
+        loadData(selectedProjectId, { showLoading: false });
+      } else {
+        loadData(selectedProjectId);
+      }
     } else if (!isProjectLoading) {
       setIsLoading(false);
     }
-  }, [isProjectLoading, selectedProjectId, loadData]);
+  }, [getBoardCache, isProjectLoading, selectedProjectId, loadData]);
 
   const resetJiraForm = () => {
     setJiraHasConfig(false);
@@ -465,8 +476,16 @@ export const TodoBoard: React.FC = () => {
   const handleAddColumn = async () => {
     if (!newColumnName.trim() || !selectedProjectId) return;
     try {
-      await todoStatusApi.create({ projectId: selectedProjectId, name: newColumnName.trim(), color: newColumnColor, order: statuses.length });
-      setNewColumnName(''); setShowAddColumn(false); showToast('Column created!', 'success'); loadData(selectedProjectId);
+      const createdStatus = await todoStatusApi.create({ projectId: selectedProjectId, name: newColumnName.trim(), color: newColumnColor, order: statuses.length });
+      const nextStatuses = [...statuses, createdStatus];
+      const nextTodosByStatus = new Map(todosByStatus);
+      nextTodosByStatus.set(createdStatus.id, []);
+
+      setStatuses(nextStatuses);
+      setTodosByStatus(nextTodosByStatus);
+      setDataSource(statusesToBoardData(nextStatuses, nextTodosByStatus));
+      setBoardCache(selectedProjectId, { statuses: nextStatuses, todosByStatus: nextTodosByStatus });
+      setNewColumnName(''); setShowAddColumn(false); showToast('Column created!', 'success');
     } catch { showToast('Failed to create column', 'error'); }
   };
 

@@ -1,5 +1,10 @@
 import { createContext } from 'react';
-import type { Project } from '../api/types';
+import type { Project, Todo, TodoStatus } from '../api/types';
+
+export interface BoardCacheEntry {
+  statuses: TodoStatus[];
+  todosByStatus: Map<string, Todo[]>;
+}
 
 export interface ProjectContextType {
   projects: Project[];
@@ -12,6 +17,8 @@ export interface ProjectContextType {
   createProject: (name: string) => Promise<Project>;
   renameProject: (projectId: string, name: string) => Promise<Project>;
   deleteProject: (projectId: string) => Promise<Project>;
+  getBoardCache: (projectId: string) => BoardCacheEntry | undefined;
+  setBoardCache: (projectId: string, cache: BoardCacheEntry) => void;
 }
 
 export const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
