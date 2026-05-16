@@ -283,7 +283,11 @@
 }
 .todo-add-column-actions { display: flex; gap: 6px; }
 .todo-edit-form { display: flex; flex-direction: column; gap: 16px; }
-.todo-edit-row { display: flex; gap: 12px; > * { flex: 1; } }
+.todo-edit-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
 .todo-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
 .todo-jira-settings {
   display: flex;
@@ -341,7 +345,7 @@
 .todo-detail-overlay {
   position: fixed;
   inset: 0;
-  z-index: 8500;
+  z-index: 10000;
   display: flex;
   justify-content: flex-end;
   background: rgba(15, 23, 42, 0.32);
@@ -350,11 +354,14 @@
 
 .todo-detail-drawer {
   width: min(520px, 100vw);
+  max-width: 100vw;
   height: 100vh;
   background: #f8fafc;
   box-shadow: -24px 0 60px rgba(15, 23, 42, 0.22);
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 10001;
   animation: todoDrawerIn 0.22s ease;
 }
 
@@ -372,7 +379,12 @@
     color: #0f172a;
     font-size: 1.25rem;
     line-height: 1.25;
+    overflow-wrap: anywhere;
   }
+}
+
+.todo-detail-title-wrap {
+  min-width: 0;
 }
 
 .todo-detail-eyebrow {
@@ -390,6 +402,7 @@
   color: #64748b;
   cursor: pointer;
   display: inline-flex;
+  flex-shrink: 0;
   padding: 8px;
   transition: all 0.18s;
 
@@ -477,6 +490,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
   background: white;
@@ -485,7 +499,38 @@
 
 .todo-detail-footer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.todo-checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+
+  input[type="checkbox"] {
+    width: auto;
+    min-width: 16px;
+    height: 16px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  label {
+    margin: 0;
+    white-space: nowrap;
+  }
+}
+
+.todo-detail-footer .btn-danger,
+.todo-detail-footer .btn-ghost,
+.todo-detail-footer .btn-primary,
+.todo-detail-link-row .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 @keyframes todoDrawerIn {
@@ -505,11 +550,15 @@
     flex-wrap: wrap;
   }
 
-  .todo-board-header-right,
-  .todo-edit-row {
+  .todo-board-header-right {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .todo-edit-row {
+    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .todo-jira-mapping-row {
