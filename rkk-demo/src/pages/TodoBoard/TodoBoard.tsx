@@ -72,6 +72,13 @@ function statusesToBoardData(
   return boardData;
 }
 
+function boardDataToReorderColumns(data: BoardData) {
+  return data.root.children.map((statusId) => ({
+    statusId,
+    orderedTodoIds: data[statusId]?.children || [],
+  }));
+}
+
 // ─── TodoCard ──────────────────────────────────────────
 
 const TodoCard: React.FC<{
@@ -434,19 +441,21 @@ export const TodoBoard: React.FC = () => {
     setDataSource(newData);
 
     const { cardId, toColumnId, fromColumnId } = move;
-    if (toColumnId !== fromColumnId) {
-      try {
+    try {
+      if (toColumnId !== fromColumnId) {
         const updatedTodo = await todoApi.update(cardId, { statusId: toColumnId });
         if (updatedTodo.jiraIssueKey && updatedTodo.jiraSyncStatus === 'FAILED') {
           showToast('Card moved, but Jira sync failed. Check the transition id and Jira workflow.', 'error');
-          loadData(selectedProjectId!);
         } else if (updatedTodo.jiraIssueKey && updatedTodo.jiraSyncStatus === 'PENDING') {
           showToast('Card moved, but Jira sync is pending. Check Jira integration and status mapping.', 'warning');
-          loadData(selectedProjectId!);
         }
       }
-      catch { showToast('Failed to move card', 'error'); loadData(selectedProjectId!); }
+      await todoApi.reorder({
+        projectId: selectedProjectId!,
+        columns: boardDataToReorderColumns(newData),
+      });
     }
+    catch { showToast('Failed to persist card order', 'error'); loadData(selectedProjectId!); }
   };
 
   const handleAddColumn = async () => {

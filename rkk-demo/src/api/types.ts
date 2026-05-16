@@ -117,6 +117,7 @@ export interface Todo {
   statusId: string;
   status?: TodoStatus;
   priority: TodoPriority;
+  position: number;
   dueDate?: string;
   jiraIssueKey?: string;
   jiraIssueUrl?: string;
@@ -137,6 +138,7 @@ export interface CreateTodoReq {
   description?: string;
   statusId: string;
   priority?: TodoPriority;
+  position?: number;
   dueDate?: string;
   tags?: string[];
   externalLinks?: { name: string; url: string }[];
@@ -149,6 +151,7 @@ export interface UpdateTodoReq {
   description?: string;
   statusId?: string;
   priority?: TodoPriority;
+  position?: number;
   dueDate?: string;
   tags?: string[];
   externalLinks?: { name: string; url: string }[];
@@ -276,12 +279,32 @@ export interface ChatRes {
   response: string;
   contextChunks: ContextChunk[];
   toolCalls?: AgentToolCall[];
+  pendingConfirmation?: AgentPendingConfirmation;
 }
 
 export interface AgentToolCall {
   toolName: string;
   input: unknown;
   output?: unknown;
+}
+
+export interface AgentPendingConfirmation {
+  toolName: string;
+  input: unknown;
+  message: string;
+}
+
+export interface AgentToolConfirmation {
+  approvedToolName: string;
+  approvedInput: Record<string, unknown>;
+}
+
+export interface ReorderTodosReq {
+  projectId: string;
+  columns: Array<{
+    statusId: string;
+    orderedTodoIds: string[];
+  }>;
 }
 
 export interface SearchResult {

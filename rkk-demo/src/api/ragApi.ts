@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { Conversation, ChatMessage, ChatRes, SearchResult } from './types';
+import type { AgentToolConfirmation, Conversation, ChatMessage, ChatRes, SearchResult } from './types';
 
 export const ragApi = {
   // Conversations
@@ -19,12 +19,14 @@ export const ragApi = {
     message: string,
     topK?: number,
     projectId?: string,
+    confirmation?: AgentToolConfirmation,
   ) =>
     apiClient
       .post<ChatRes>(`/rag/conversations/${conversationId}/chat`, {
         message,
         topK,
         projectId,
+        confirmation,
       })
       .then((r) => r.data),
 

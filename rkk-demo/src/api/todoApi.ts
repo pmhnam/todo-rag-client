@@ -5,6 +5,7 @@ import type {
   CreateTodoReq,
   UpdateTodoReq,
   LinkJiraIssueReq,
+  ReorderTodosReq,
   CreateTodoStatusReq,
   UpdateTodoStatusReq,
   ListTodoParams,
@@ -51,6 +52,9 @@ export const todoApi = {
 
   linkJiraIssue: (id: string, data: LinkJiraIssueReq) =>
     apiClient.patch<Todo>(`/todos/${id}/jira-link`, data).then((r) => r.data),
+
+  reorder: (data: ReorderTodosReq) =>
+    apiClient.patch<void>('/todos/reorder', data).then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/todos/${id}`),
 };

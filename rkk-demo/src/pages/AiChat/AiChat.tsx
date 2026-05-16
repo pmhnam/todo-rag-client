@@ -5,7 +5,7 @@ import { ragApi } from '../../api/ragApi';
 import { projectApi } from '../../api/projectApi';
 import { useToast } from '../../components/Toast';
 import { Spinner } from '../../components/Spinner';
-import type { AgentToolCall, Conversation, ChatMessage, ContextChunk, Project } from '../../api/types';
+import type { AgentPendingConfirmation, AgentToolCall, Conversation, ChatMessage, ContextChunk, Project } from '../../api/types';
 import {
   MessageSquarePlus,
   Send,
@@ -28,6 +28,7 @@ export const AiChat: React.FC = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [contextChunks, setContextChunks] = useState<ContextChunk[]>([]);
   const [toolCalls, setToolCalls] = useState<AgentToolCall[]>([]);
+  const [pendingConfirmation, setPendingConfirmation] = useState<AgentPendingConfirmation | null>(null);
   const [showContext, setShowContext] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -106,6 +107,7 @@ export const AiChat: React.FC = () => {
       setMessages([]);
       setContextChunks([]);
       setToolCalls([]);
+      setPendingConfirmation(null);
       showToast('New conversation created', 'success');
     } catch {
       showToast('Failed to create conversation', 'error');
@@ -135,6 +137,7 @@ export const AiChat: React.FC = () => {
     const userMessage = input.trim();
     setInput('');
     setIsSending(true);
+    setPendingConfirmation(null);
 
     // Optimistic: add user message
     const tempUserMsg: ChatMessage = {
@@ -162,6 +165,7 @@ export const AiChat: React.FC = () => {
       setMessages((prev) => [...prev, assistantMsg]);
       setContextChunks(res.contextChunks || []);
       setToolCalls(res.toolCalls || []);
+      setPendingConfirmation(res.pendingConfirmation || null);
     } catch {
       showToast('Failed to get AI response. Is the LLM service running?', 'error');
     } finally {
@@ -181,6 +185,7 @@ export const AiChat: React.FC = () => {
         setActiveConvId(null);
         setMessages([]);
         setToolCalls([]);
+        setPendingConfirmation(null);
       }
       showToast('Conversation deleted', 'success');
     } catch {
@@ -195,6 +200,69 @@ export const AiChat: React.FC = () => {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!activeConvId || !pendingConfirmation || isSending) return;
+
+    const confirmation = pendingConfirmation;
+    setIsSending(true);
+    setPendingConfirmation(null);
+
+    const userMessage = `Xác nhận thao tác ${confirmation.toolName}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `confirm-${Date.now()}`,
+        role: 'user',
+        content: userMessage,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    try {
+      const res = await ragApi.sendMessage(
+        activeConvId,
+        userMessage,
+        undefined,
+        selectedProjectId || undefined,
+        {
+          approvedToolName: confirmation.toolName,
+          approvedInput: confirmation.input as Record<string, unknown>,
+        },
+      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `confirm-resp-${Date.now()}`,
+          role: 'assistant',
+          content: res.response,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      setToolCalls(res.toolCalls || []);
+      setContextChunks(res.contextChunks || []);
+      showToast('Confirmed action completed', 'success');
+    } catch {
+      showToast('Failed to confirm action', 'error');
+      setPendingConfirmation(confirmation);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleCancelAction = () => {
+    if (!pendingConfirmation) return;
+    setPendingConfirmation(null);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `cancel-${Date.now()}`,
+        role: 'assistant',
+        content: 'Đã huỷ thao tác cần xác nhận.',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
   };
 
   return (
@@ -362,6 +430,20 @@ export const AiChat: React.FC = () => {
                     <small>{call.output ? 'completed' : 'started'}</small>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {pendingConfirmation && (
+              <div className="ai-chat-tools">
+                <div className="ai-chat-tools-title">Confirmation required</div>
+                <div className="ai-chat-tool-item">
+                  <span>{pendingConfirmation.message}</span>
+                  <small>{pendingConfirmation.toolName}</small>
+                </div>
+                <div style={{ display: 'flex', gap: 8, padding: '8px 12px' }}>
+                  <button className="btn-danger" onClick={handleConfirmAction} disabled={isSending}>Confirm</button>
+                  <button className="btn-ghost" onClick={handleCancelAction} disabled={isSending}>Cancel</button>
+                </div>
               </div>
             )}
 
