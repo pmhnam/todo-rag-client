@@ -83,13 +83,13 @@ function boardDataToReorderColumns(data: BoardData) {
 
 const TodoCard: React.FC<{
   data: BoardItem;
-  onEdit: (todo: Todo) => void;
+  onOpen: (todo: Todo) => void;
   onDelete: (todo: Todo) => void;
-}> = ({ data, onEdit, onDelete }) => {
+}> = ({ data, onOpen, onDelete }) => {
   const todo = data.content as Todo;
   if (!todo?.priority) return <div className="todo-card"><div className="todo-card-title">{data.title}</div></div>;
   return (
-    <div className="todo-card">
+    <div className="todo-card" onClick={() => onOpen(todo)}>
       <div className="todo-card-header">
         <div className="todo-card-priority">
           <Flag size={14} style={{ color: PRIORITY_COLORS[todo.priority] }} fill={PRIORITY_COLORS[todo.priority]} />
@@ -97,7 +97,7 @@ const TodoCard: React.FC<{
           {todo.generatedByAi && <span title="AI Generated" style={{ display: 'inline-flex' }}><Sparkles size={14} style={{ color: '#8b5cf6', marginLeft: 4 }} /></span>}
         </div>
         <div className="todo-card-actions">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(todo); }} title="Edit"><Edit3 size={14} /></button>
+          <button onClick={(e) => { e.stopPropagation(); onOpen(todo); }} title="Open details"><Edit3 size={14} /></button>
           <button onClick={(e) => { e.stopPropagation(); onDelete(todo); }} title="Delete"><Trash2 size={14} /></button>
         </div>
       </div>
@@ -204,6 +204,7 @@ export const TodoBoard: React.FC = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editPriority, setEditPriority] = useState<TodoPriority>('MEDIUM');
+  const [editStatusId, setEditStatusId] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editTagsStr, setEditTagsStr] = useState('');
   const [editAiSummary, setEditAiSummary] = useState('');
@@ -223,8 +224,9 @@ export const TodoBoard: React.FC = () => {
 
   const { showToast } = useToast();
 
-  const loadData = useCallback(async (projectId: string) => {
-    setIsLoading(true);
+  const loadData = useCallback(async (projectId: string, options: { showLoading?: boolean } = {}) => {
+    const { showLoading = true } = options;
+    if (showLoading) setIsLoading(true);
     try {
       const statusRes = await todoStatusApi.getAll({ projectId, page: 1, limit: 50 });
       const fetchedStatuses: TodoStatus[] = statusRes.data || [];
@@ -243,7 +245,7 @@ export const TodoBoard: React.FC = () => {
       const emptyBoard: BoardData = { root: { id: 'root', title: 'Board', parentId: null, children: [], totalChildrenCount: 0, totalItemsCount: 0 } };
       setDataSource(emptyBoard);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   }, [showToast]);
 
@@ -390,13 +392,14 @@ export const TodoBoard: React.FC = () => {
 
   const handleAddCard = async (data: Omit<CreateTodoReq, 'projectId'>) => {
     if (!selectedProjectId) return;
-    try { await todoApi.create({ ...data, projectId: selectedProjectId }); setAddingCardForColumn(null); showToast('Card created!', 'success'); loadData(selectedProjectId); }
+    try { await todoApi.create({ ...data, projectId: selectedProjectId }); setAddingCardForColumn(null); showToast('Card created!', 'success'); loadData(selectedProjectId, { showLoading: false }); }
     catch { showToast('Failed to create card', 'error'); }
   };
 
   const handleEditTodo = (todo: Todo) => {
     setEditingTodo(todo); setEditTitle(todo.title); setEditDescription(todo.description || '');
     setEditPriority(todo.priority); setEditDueDate(todo.dueDate ? todo.dueDate.split('T')[0] : '');
+    setEditStatusId(todo.statusId);
     setEditTagsStr(todo.tags?.join(', ') || '');
     setEditAiSummary(todo.aiSummary || '');
     setEditGeneratedByAi(todo.generatedByAi || false);
@@ -410,6 +413,7 @@ export const TodoBoard: React.FC = () => {
       await todoApi.update(editingTodo.id, { 
         title: editTitle, 
         description: editDescription || undefined, 
+        statusId: editStatusId || undefined,
         priority: editPriority, 
         dueDate: editDueDate || undefined,
         tags: editTagsStr ? editTagsStr.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -428,7 +432,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleDeleteTodo = async () => {
     if (!deletingTodo || !selectedProjectId) return;
-    try { await todoApi.delete(deletingTodo.id); setDeletingTodo(null); showToast('Card deleted', 'success'); loadData(selectedProjectId); }
+    try { await todoApi.delete(deletingTodo.id); setDeletingTodo(null); setEditingTodo(null); showToast('Card deleted', 'success'); loadData(selectedProjectId); }
     catch { showToast('Failed to delete card', 'error'); }
   };
 
@@ -529,7 +533,7 @@ export const TodoBoard: React.FC = () => {
             dataSource={dataSource}
             configMap={{
               card: {
-                render: ({ data }) => <TodoCard data={data} onEdit={handleEditTodo} onDelete={(todo) => setDeletingTodo(todo)} />,
+                render: ({ data }) => <TodoCard data={data} onOpen={handleEditTodo} onDelete={(todo) => setDeletingTodo(todo)} />,
                 isDraggable: true,
               },
             }}
@@ -570,48 +574,99 @@ export const TodoBoard: React.FC = () => {
         )}
       </div>
 
-      <Modal isOpen={!!editingTodo} onClose={() => setEditingTodo(null)} title="Edit Card" size="md"
-        footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setEditingTodo(null)}>Cancel</button><button className="btn-primary" onClick={handleSaveEdit}>Save Changes</button></div>}
-      >
-        <div className="todo-edit-form">
-          <div className="auth-field"><label>Title</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /></div>
-          <div className="auth-field"><label>Description</label><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} /></div>
-          <div className="todo-edit-row">
-            <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
-            <div className="auth-field"><label>Due Date</label><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} /></div>
-          </div>
-          <div className="auth-field">
-            <label>Jira Issue Key</label>
-            <input type="text" value={editJiraIssueKey} onChange={(e) => setEditJiraIssueKey(e.target.value.toUpperCase())} placeholder="PROJ-123" />
-            <small>Used to sync status changes with Jira. Leave blank to unlink.</small>
-          </div>
-          <div className="auth-field"><label>Tags (comma separated)</label><input type="text" value={editTagsStr} onChange={(e) => setEditTagsStr(e.target.value)} placeholder="bug, frontend, urgent" /></div>
-          <div className="auth-field"><label>AI Summary</label><textarea value={editAiSummary} onChange={(e) => setEditAiSummary(e.target.value)} rows={2} placeholder="Brief AI summary..." /></div>
-          <div className="auth-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={editGeneratedByAi} onChange={(e) => setEditGeneratedByAi(e.target.checked)} id="gen-ai" />
-            <label htmlFor="gen-ai" style={{ margin: 0 }}>Generated by AI</label>
-          </div>
-          <div className="auth-field">
-            <label>External Links</label>
-            {editExternalLinks.map((link, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <input type="text" placeholder="Name" value={link.name} onChange={(e) => {
-                  const newLinks = [...editExternalLinks]; newLinks[idx].name = e.target.value; setEditExternalLinks(newLinks);
-                }} />
-                <input type="text" placeholder="URL" value={link.url} onChange={(e) => {
-                  const newLinks = [...editExternalLinks]; newLinks[idx].url = e.target.value; setEditExternalLinks(newLinks);
-                }} />
-                <button type="button" className="btn-ghost" onClick={() => {
-                  const newLinks = editExternalLinks.filter((_, i) => i !== idx); setEditExternalLinks(newLinks);
-                }}><X size={16} /></button>
+      {editingTodo && (
+        <div className="todo-detail-overlay" onClick={() => setEditingTodo(null)}>
+          <aside className="todo-detail-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="todo-detail-header">
+              <div>
+                <span className="todo-detail-eyebrow">Task details</span>
+                <h2>{editingTodo.title}</h2>
               </div>
-            ))}
-            <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '4px 8px' }} onClick={() => setEditExternalLinks([...editExternalLinks, { name: '', url: '' }])}>
-              <Plus size={14} /> Add Link
-            </button>
-          </div>
+              <button className="todo-detail-close" onClick={() => setEditingTodo(null)}><X size={18} /></button>
+            </div>
+
+            <div className="todo-detail-body">
+              <section className="todo-detail-section">
+                <h3>Overview</h3>
+                <div className="todo-edit-form">
+                  <div className="auth-field"><label>Title</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /></div>
+                  <div className="auth-field"><label>Description</label><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={5} placeholder="Describe the task..." /></div>
+                </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3>Planning</h3>
+                <div className="todo-edit-row">
+                  <div className="auth-field"><label>Status</label><select value={editStatusId} onChange={(e) => setEditStatusId(e.target.value)}>{statuses.map((status) => <option key={status.id} value={status.id}>{status.name}</option>)}</select></div>
+                  <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
+                </div>
+                <div className="todo-edit-row">
+                  <div className="auth-field"><label>Due Date</label><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} /></div>
+                  <div className="todo-detail-meta-card"><span>Position</span><strong>{editingTodo.position + 1}</strong></div>
+                </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3>Metadata</h3>
+                <div className="auth-field"><label>Tags (comma separated)</label><input type="text" value={editTagsStr} onChange={(e) => setEditTagsStr(e.target.value)} placeholder="bug, frontend, urgent" /></div>
+                <div className="auth-field"><label>AI Summary</label><textarea value={editAiSummary} onChange={(e) => setEditAiSummary(e.target.value)} rows={3} placeholder="Brief AI summary..." /></div>
+                <div className="auth-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={editGeneratedByAi} onChange={(e) => setEditGeneratedByAi(e.target.checked)} id="gen-ai" />
+                  <label htmlFor="gen-ai" style={{ margin: 0 }}>Generated by AI</label>
+                </div>
+                <div className="auth-field">
+                  <label>External Links</label>
+                  {editExternalLinks.map((link, idx) => (
+                    <div className="todo-detail-link-row" key={idx}>
+                      <input type="text" placeholder="Name" value={link.name} onChange={(e) => {
+                        const newLinks = [...editExternalLinks]; newLinks[idx].name = e.target.value; setEditExternalLinks(newLinks);
+                      }} />
+                      <input type="text" placeholder="URL" value={link.url} onChange={(e) => {
+                        const newLinks = [...editExternalLinks]; newLinks[idx].url = e.target.value; setEditExternalLinks(newLinks);
+                      }} />
+                      <button type="button" className="btn-ghost" onClick={() => {
+                        const newLinks = editExternalLinks.filter((_, i) => i !== idx); setEditExternalLinks(newLinks);
+                      }}><X size={16} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '4px 8px' }} onClick={() => setEditExternalLinks([...editExternalLinks, { name: '', url: '' }])}>
+                    <Plus size={14} /> Add Link
+                  </button>
+                </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3>Jira</h3>
+                <div className="auth-field">
+                  <label>Jira Issue Key</label>
+                  <input type="text" value={editJiraIssueKey} onChange={(e) => setEditJiraIssueKey(e.target.value.toUpperCase())} placeholder="PROJ-123" />
+                  <small>Used to sync status changes with Jira. Leave blank to unlink.</small>
+                </div>
+                <div className="todo-detail-meta-grid">
+                  <div className={`todo-detail-meta-card todo-card-jira-${editingTodo.jiraSyncStatus?.toLowerCase()}`}><span>Sync status</span><strong>{editingTodo.jiraSyncStatus}</strong></div>
+                  {editingTodo.jiraIssueUrl && <a className="todo-detail-jira-link" href={editingTodo.jiraIssueUrl} target="_blank" rel="noopener noreferrer"><Link2 size={14} /> Open Jira issue</a>}
+                </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3>Audit</h3>
+                <div className="todo-detail-meta-grid">
+                  <div className="todo-detail-meta-card"><span>Created</span><strong>{new Date(editingTodo.createdAt).toLocaleString()}</strong></div>
+                  <div className="todo-detail-meta-card"><span>Updated</span><strong>{new Date(editingTodo.updatedAt).toLocaleString()}</strong></div>
+                </div>
+              </section>
+            </div>
+
+            <div className="todo-detail-footer">
+              <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)}><Trash2 size={16} /> Delete</button>
+              <div className="todo-detail-footer-actions">
+                <button className="btn-ghost" onClick={() => setEditingTodo(null)}>Cancel</button>
+                <button className="btn-primary" onClick={handleSaveEdit}>Save Changes</button>
+              </div>
+            </div>
+          </aside>
         </div>
-      </Modal>
+      )}
 
       <Modal isOpen={showJiraSettings} onClose={() => setShowJiraSettings(false)} title="Jira Settings" size="lg"
         footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setShowJiraSettings(false)}>Close</button>{jiraHasConfig && <button className="btn-danger" onClick={handleDisconnectJira} disabled={jiraLoading}>Disconnect</button>}<button className="btn-ghost" onClick={handleTestJiraConnection} disabled={jiraLoading || !jiraHasConfig}>Test Connection</button><button className="btn-primary" onClick={handleSaveJiraSettings} disabled={jiraLoading}>{jiraLoading ? 'Saving...' : 'Save Jira Settings'}</button></div>}
