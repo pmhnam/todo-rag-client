@@ -262,17 +262,23 @@ export const TodoBoard: React.FC = () => {
 
       const todosMap = new Map<string, Todo[]>();
       for (const status of fetchedStatuses) {
-        const todosRes = await todoApi.getAll({
-          projectId,
-          statusId: status.id,
-          page: 1,
-          limit: 100,
-          q: searchQuery.trim() || undefined,
-          priority: filterPriority === 'ALL' ? undefined : filterPriority,
-          jiraSyncStatus: filterJiraStatus === 'ALL' ? undefined : filterJiraStatus,
-        });
-        const filteredTodos = (todosRes.data || []).filter((todo) => matchesDueDateFilter(todo, filterDueDate));
-        todosMap.set(status.id, filteredTodos);
+        todosMap.set(status.id, []);
+      }
+
+      const todos = await todoApi.getBoard({
+        projectId,
+        page: 1,
+        limit: 500,
+        q: searchQuery.trim() || undefined,
+        priority: filterPriority === 'ALL' ? undefined : filterPriority,
+        jiraSyncStatus: filterJiraStatus === 'ALL' ? undefined : filterJiraStatus,
+      });
+      for (const todo of todos) {
+        if (!matchesDueDateFilter(todo, filterDueDate)) continue;
+        const statusTodos = todosMap.get(todo.statusId);
+        if (statusTodos) {
+          statusTodos.push(todo);
+        }
       }
       setTodosByStatus(todosMap);
       setDataSource(statusesToBoardData(fetchedStatuses, todosMap));

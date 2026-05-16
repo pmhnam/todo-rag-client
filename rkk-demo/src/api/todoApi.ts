@@ -41,6 +41,9 @@ export const todoApi = {
       .get<PaginatedRes<Todo>>('/todos', { params })
       .then((r) => r.data),
 
+  getBoard: (params: ListTodoParams) =>
+    apiClient.get<Todo[]>('/todos/board', { params }).then((r) => r.data),
+
   getById: (id: string) =>
     apiClient.get<Todo>(`/todos/${id}`).then((r) => r.data),
 
