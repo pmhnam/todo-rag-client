@@ -6,6 +6,7 @@ import type {
   UpdateTodoReq,
   LinkJiraIssueReq,
   TodoComment,
+  TodoActivity,
   CreateTodoCommentReq,
   UpdateTodoCommentReq,
   ReorderTodosReq,
@@ -79,4 +80,9 @@ export const todoCommentApi = {
 
   delete: (todoId: string, commentId: string) =>
     apiClient.delete(`/todos/${todoId}/comments/${commentId}`),
+};
+
+export const todoActivityApi = {
+  getAll: (todoId: string) =>
+    apiClient.get<TodoActivity[]>(`/todos/${todoId}/activities`).then((r) => r.data),
 };

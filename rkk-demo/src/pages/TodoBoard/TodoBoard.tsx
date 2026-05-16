@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
-import { todoApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
+import { todoActivityApi, todoApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
 import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -98,6 +98,13 @@ function matchesDueDateFilter(todo: Todo, filter: DueDateFilter) {
   if (filter === 'OVERDUE') return dueDay < today;
   if (filter === 'UPCOMING') return dueDay > today;
   return true;
+}
+
+function formatActivityValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'empty';
+  if (Array.isArray(value)) return value.join(', ') || 'empty';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 // ─── TodoCard ──────────────────────────────────────────
@@ -235,6 +242,8 @@ export const TodoBoard: React.FC = () => {
   const [editJiraIssueKey, setEditJiraIssueKey] = useState('');
   const [comments, setComments] = useState<TodoComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [activities, setActivities] = useState<TodoActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
@@ -527,6 +536,19 @@ export const TodoBoard: React.FC = () => {
       .then(setComments)
       .catch(() => showToast('Failed to load comments', 'error'))
       .finally(() => setCommentsLoading(false));
+    setActivitiesLoading(true);
+    todoActivityApi.getAll(todo.id)
+      .then(setActivities)
+      .catch(() => showToast('Failed to load activities', 'error'))
+      .finally(() => setActivitiesLoading(false));
+  };
+
+  const reloadActivities = async (todoId: string) => {
+    try {
+      setActivities(await todoActivityApi.getAll(todoId));
+    } catch {
+      showToast('Failed to refresh activities', 'error');
+    }
   };
 
   const handleAddComment = async () => {
@@ -550,6 +572,7 @@ export const TodoBoard: React.FC = () => {
     try {
       const saved = await todoCommentApi.create(editingTodo.id, { content });
       setComments((current) => current.map((comment) => comment.id === tempComment.id ? saved : comment));
+      await reloadActivities(editingTodo.id);
     } catch {
       setComments(previousComments);
       setNewComment(content);
@@ -569,6 +592,7 @@ export const TodoBoard: React.FC = () => {
       setComments((current) => current.map((comment) => comment.id === commentId ? updated : comment));
       setEditingCommentId(null);
       setEditingCommentContent('');
+      await reloadActivities(editingTodo.id);
     } catch {
       showToast('Failed to update comment', 'error');
     }
@@ -580,6 +604,7 @@ export const TodoBoard: React.FC = () => {
     setComments((current) => current.filter((comment) => comment.id !== commentId));
     try {
       await todoCommentApi.delete(editingTodo.id, commentId);
+      await reloadActivities(editingTodo.id);
     } catch {
       setComments(previousComments);
       showToast('Failed to delete comment', 'error');
@@ -609,6 +634,7 @@ export const TodoBoard: React.FC = () => {
       if (selectedProjectId) {
         await loadData(selectedProjectId, { showLoading: false });
       }
+      await reloadActivities(editingTodo.id);
       showToast('Card updated!', 'success');
     } catch { showToast('Failed to update card', 'error'); }
   };
@@ -934,6 +960,38 @@ export const TodoBoard: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </section>
+
+              <section className="todo-detail-section">
+                <h3><History size={15} /> Activity</h3>
+                {activitiesLoading ? (
+                  <div className="todo-comments-empty"><Spinner size="sm" /> Loading activities...</div>
+                ) : activities.length === 0 ? (
+                  <div className="todo-comments-empty">No activity yet.</div>
+                ) : (
+                  <div className="todo-activity-list">
+                    {activities.map((activity) => (
+                      <div className="todo-activity" key={activity.id}>
+                        <div className="todo-activity-dot" />
+                        <div className="todo-activity-content">
+                          <div className="todo-activity-main">
+                            <strong>{activity.message}</strong>
+                            <time>{new Date(activity.createdAt).toLocaleString()}</time>
+                          </div>
+                          {activity.metadata?.changes && activity.metadata.changes.length > 0 && (
+                            <div className="todo-activity-changes">
+                              {activity.metadata.changes.map((change, index) => (
+                                <span key={`${change.field}-${index}`}>
+                                  {change.field}: {formatActivityValue(change.from)} → {formatActivityValue(change.to)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className="todo-detail-section">

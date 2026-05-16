@@ -181,6 +181,33 @@ export interface UpdateTodoCommentReq {
   content?: string;
 }
 
+export type TodoActivityType =
+  | 'TASK_CREATED'
+  | 'TASK_UPDATED'
+  | 'TASK_MOVED'
+  | 'TASK_DELETED'
+  | 'JIRA_LINKED'
+  | 'JIRA_UNLINKED'
+  | 'JIRA_SYNCED'
+  | 'JIRA_SYNC_PENDING'
+  | 'JIRA_SYNC_FAILED'
+  | 'COMMENT_ADDED'
+  | 'COMMENT_UPDATED'
+  | 'COMMENT_DELETED';
+
+export interface TodoActivity {
+  id: string;
+  todoId: string;
+  userId: string;
+  type: TodoActivityType;
+  message: string;
+  metadata?: {
+    changes?: Array<{ field: string; from: unknown; to: unknown }>;
+    [key: string]: unknown;
+  };
+  createdAt: string;
+}
+
 export interface ListTodoParams {
   projectId: string;
   page?: number;
