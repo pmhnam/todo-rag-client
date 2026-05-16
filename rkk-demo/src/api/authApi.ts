@@ -1,5 +1,11 @@
 import apiClient from './apiClient';
-import type { LoginReq, LoginRes, RegisterReq, RegisterRes } from './types';
+import type {
+  LoginReq,
+  LoginRes,
+  RefreshRes,
+  RegisterReq,
+  RegisterRes,
+} from './types';
 
 export const authApi = {
   login: (data: LoginReq) =>
@@ -12,6 +18,6 @@ export const authApi = {
 
   refreshToken: (refreshToken: string) =>
     apiClient
-      .post<LoginRes>('/auth/refresh', { refreshToken })
+      .post<RefreshRes>('/auth/refresh', { refreshToken })
       .then((r) => r.data),
 };

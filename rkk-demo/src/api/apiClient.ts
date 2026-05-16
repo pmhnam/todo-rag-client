@@ -1,4 +1,15 @@
 import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+
+type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+  tokenExpires: number;
+};
+
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 const API_BASE_URL =
   window.__RKK_DEMO_CONFIG__?.VITE_API_BASE_URL ||
@@ -11,6 +22,46 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export const setAuthTokens = (tokens: AuthTokens) => {
+  localStorage.setItem('accessToken', tokens.accessToken);
+  localStorage.setItem('refreshToken', tokens.refreshToken);
+  localStorage.setItem('tokenExpires', String(tokens.tokenExpires));
+};
+
+export const clearAuthTokens = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('tokenExpires');
+};
+
+export const shouldRefreshAccessToken = () => {
+  const accessToken = localStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
+  const tokenExpires = Number(localStorage.getItem('tokenExpires'));
+
+  if (!refreshToken) return false;
+  if (!accessToken) return true;
+  if (!tokenExpires) return false;
+
+  return Date.now() >= tokenExpires - 30_000;
+};
+
+export const refreshAuthTokens = async () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+
+  if (!refreshToken) {
+    throw new Error('Missing refresh token');
+  }
+
+  const { data } = await axios.post<AuthTokens>(`${API_BASE_URL}/auth/refresh`, {
+    refreshToken,
+  });
+
+  setAuthTokens(data);
+
+  return data;
+};
 
 // ─── Request Interceptor: Attach JWT token ─────────────
 
@@ -29,13 +80,13 @@ apiClient.interceptors.request.use(
 
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value: unknown) => void;
+  resolve: (value: string) => void;
   reject: (reason?: unknown) => void;
 }> = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
-    if (error) {
+    if (error || !token) {
       prom.reject(error);
     } else {
       prom.resolve(token);
@@ -46,12 +97,13 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
 
     // Skip refresh logic for auth endpoints
     if (
       error.response?.status === 401 &&
+      originalRequest &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/auth/')
     ) {
@@ -70,26 +122,20 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
         isRefreshing = false;
-        localStorage.clear();
+        clearAuthTokens();
         window.location.href = '/login';
         return Promise.reject(error);
       }
 
       try {
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('tokenExpires', String(data.tokenExpires));
+        const data = await refreshAuthTokens();
 
         processQueue(null, data.accessToken);
         originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.clear();
+        clearAuthTokens();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

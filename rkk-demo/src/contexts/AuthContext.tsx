@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+  clearAuthTokens,
+  refreshAuthTokens,
+  setAuthTokens,
+  shouldRefreshAccessToken,
+} from '../api/apiClient';
 import { authApi } from '../api/authApi';
 import { userApi } from '../api/userApi';
 import type { User } from '../api/types';
@@ -10,17 +16,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUser = useCallback(async () => {
     const token = localStorage.getItem('accessToken');
-    if (!token) {
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    if (!token && !refreshToken) {
       setIsLoading(false);
       return;
     }
+
     try {
+      if (shouldRefreshAccessToken()) {
+        await refreshAuthTokens();
+      }
+
       const userData = await userApi.me();
       setUser(userData);
     } catch {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('tokenExpires');
+      clearAuthTokens();
     } finally {
       setIsLoading(false);
     }
@@ -32,9 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const res = await authApi.login({ email, password });
-    localStorage.setItem('accessToken', res.accessToken);
-    localStorage.setItem('refreshToken', res.refreshToken);
-    localStorage.setItem('tokenExpires', String(res.tokenExpires));
+    setAuthTokens(res);
     const userData = await userApi.me();
     setUser(userData);
   };
@@ -49,9 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore logout errors
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('tokenExpires');
+      clearAuthTokens();
       setUser(null);
     }
   };
