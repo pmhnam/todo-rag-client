@@ -1,10 +1,17 @@
 services:
   rkk-demo:
-    platform: linux/amd64
+    platform: linux/arm64
+    container_name: rkk-demo
     build:
       context: ..
       dockerfile: rkk-demo/Dockerfile
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api/v1}
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
