@@ -240,6 +240,7 @@ export const TodoBoard: React.FC = () => {
   const [editGeneratedByAi, setEditGeneratedByAi] = useState(false);
   const [editExternalLinks, setEditExternalLinks] = useState<{name: string, url: string}[]>([]);
   const [editJiraIssueKey, setEditJiraIssueKey] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [comments, setComments] = useState<TodoComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [activities, setActivities] = useState<TodoActivity[]>([]);
@@ -528,6 +529,7 @@ export const TodoBoard: React.FC = () => {
     setEditGeneratedByAi(todo.generatedByAi || false);
     setEditExternalLinks(todo.externalLinks || []);
     setEditJiraIssueKey(todo.jiraIssueKey || '');
+    setIsSavingEdit(false);
     setNewComment('');
     setEditingCommentId(null);
     setEditingCommentContent('');
@@ -612,7 +614,8 @@ export const TodoBoard: React.FC = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!editingTodo) return;
+    if (!editingTodo || isSavingEdit) return;
+    setIsSavingEdit(true);
     try {
       await todoApi.update(editingTodo.id, { 
         title: editTitle, 
@@ -637,6 +640,7 @@ export const TodoBoard: React.FC = () => {
       await reloadActivities(editingTodo.id);
       showToast('Card updated!', 'success');
     } catch { showToast('Failed to update card', 'error'); }
+    finally { setIsSavingEdit(false); }
   };
 
   const handleDeleteTodo = async () => {
@@ -845,7 +849,7 @@ export const TodoBoard: React.FC = () => {
                 <span className="todo-detail-eyebrow">Task details</span>
                 <h2>{editingTodo.title}</h2>
               </div>
-              <button className="todo-detail-close" onClick={() => setEditingTodo(null)}><X size={18} /></button>
+              <button className="todo-detail-close" onClick={() => setEditingTodo(null)} disabled={isSavingEdit}><X size={18} /></button>
             </div>
 
             <div className="todo-detail-body">
@@ -1004,10 +1008,12 @@ export const TodoBoard: React.FC = () => {
             </div>
 
             <div className="todo-detail-footer">
-              <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)}><Trash2 size={16} /> Delete</button>
+              <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)} disabled={isSavingEdit}><Trash2 size={16} /> Delete</button>
               <div className="todo-detail-footer-actions">
-                <button className="btn-ghost" onClick={() => setEditingTodo(null)}>Cancel</button>
-                <button className="btn-primary" onClick={handleSaveEdit}>Save Changes</button>
+                <button className="btn-ghost" onClick={() => setEditingTodo(null)} disabled={isSavingEdit}>Cancel</button>
+                <button className="btn-primary" onClick={handleSaveEdit} disabled={isSavingEdit}>
+                  {isSavingEdit ? <><Spinner size="sm" /> Saving...</> : 'Save Changes'}
+                </button>
               </div>
             </div>
           </aside>
