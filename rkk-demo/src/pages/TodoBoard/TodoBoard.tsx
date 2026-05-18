@@ -24,6 +24,9 @@ const DEFAULT_COLUMN_COLORS = [
   '#f59e0b', '#ef4444', '#3b82f6', '#10b981',
 ];
 type DueDateFilter = 'ALL' | 'OVERDUE' | 'TODAY' | 'UPCOMING' | 'NO_DUE';
+type DueDateState = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'no_due';
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function statusesToBoardData(
   statuses: TodoStatus[],
@@ -84,11 +87,55 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getRelativeDateInputValue(daysFromToday: number) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + daysFromToday);
+  return formatDateInputValue(date);
+}
+
+function parseDueDate(value?: string) {
+  if (!value) return null;
+  const dateOnly = value.split('T')[0];
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function getDueDateInfo(value?: string): { state: DueDateState; label: string; helper: string } {
+  const dueDate = parseDueDate(value);
+  if (!dueDate) return { state: 'no_due', label: 'No due date', helper: 'No due date set' };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dueDate.setHours(0, 0, 0, 0);
+  const days = Math.round((dueDate.getTime() - today.getTime()) / DAY_IN_MS);
+
+  if (days < 0) {
+    const count = Math.abs(days);
+    const label = count === 1 ? 'Overdue by 1 day' : `Overdue by ${count} days`;
+    return { state: 'overdue', label, helper: label };
+  }
+  if (days === 0) return { state: 'today', label: 'Today', helper: 'Due today' };
+  if (days === 1) return { state: 'tomorrow', label: 'Tomorrow', helper: 'Due tomorrow' };
+
+  const dateLabel = dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return { state: 'upcoming', label: dateLabel, helper: `Due in ${days} days` };
+}
+
 function matchesDueDateFilter(todo: Todo, filter: DueDateFilter) {
   if (filter === 'ALL') return true;
   if (!todo.dueDate) return filter === 'NO_DUE';
 
-  const dueDate = new Date(todo.dueDate);
+  const dueDate = parseDueDate(todo.dueDate);
+  if (!dueDate) return filter === 'NO_DUE';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueDay = new Date(dueDate);
@@ -115,9 +162,10 @@ const TodoCard: React.FC<{
   onDelete: (todo: Todo) => void;
 }> = ({ data, onOpen, onDelete }) => {
   const todo = data.content as Todo;
+  const dueDateInfo = getDueDateInfo(todo?.dueDate);
   if (!todo?.priority) return <div className="todo-card"><div className="todo-card-title">{data.title}</div></div>;
   return (
-    <div className="todo-card" onClick={() => onOpen(todo)}>
+    <div className={`todo-card ${dueDateInfo.state === 'overdue' ? 'todo-card--overdue' : ''}`} onClick={() => onOpen(todo)}>
       <div className="todo-card-header">
         <div className="todo-card-priority">
           <Flag size={14} style={{ color: PRIORITY_COLORS[todo.priority] }} fill={PRIORITY_COLORS[todo.priority]} />
@@ -150,7 +198,7 @@ const TodoCard: React.FC<{
       )}
       <div className="todo-card-footer" style={{ marginTop: 8 }}>
         {todo.dueDate && (
-          <div className="todo-card-due"><Calendar size={12} /><span>{new Date(todo.dueDate).toLocaleDateString()}</span></div>
+          <div className={`todo-card-due todo-card-due--${dueDateInfo.state}`} title={parseDueDate(todo.dueDate)?.toLocaleDateString()}><Calendar size={12} /><span>{dueDateInfo.label}</span></div>
         )}
         {todo.jiraIssueKey && (
           <span className={`todo-card-jira-wrap todo-card-jira-${todo.jiraSyncStatus?.toLowerCase()}`}>
@@ -175,6 +223,8 @@ const AddCardForm: React.FC<{
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<TodoPriority>('MEDIUM');
   const [tagsStr, setTagsStr] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const dueDateInfo = getDueDateInfo(dueDate);
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -182,10 +232,12 @@ const AddCardForm: React.FC<{
       title: title.trim(), 
       statusId, 
       priority,
+      dueDate: dueDate || undefined,
       tags: tagsStr ? tagsStr.split(',').map(s => s.trim()).filter(Boolean) : undefined
     });
     setTitle('');
     setTagsStr('');
+    setDueDate('');
   };
 
   return (
@@ -200,6 +252,16 @@ const AddCardForm: React.FC<{
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onCancel(); }}
         style={{ marginTop: 4, fontSize: '12px', padding: '4px 8px' }}
       />
+      <div className="todo-due-picker todo-due-picker--compact">
+        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <div className="todo-due-quick-actions">
+          <button type="button" onClick={() => setDueDate(getRelativeDateInputValue(0))}>Today</button>
+          <button type="button" onClick={() => setDueDate(getRelativeDateInputValue(1))}>Tomorrow</button>
+          <button type="button" onClick={() => setDueDate(getRelativeDateInputValue(7))}>Next week</button>
+          {dueDate && <button type="button" onClick={() => setDueDate('')}>Clear</button>}
+        </div>
+        {dueDate && <small className={`todo-due-helper todo-due-helper--${dueDateInfo.state}`}>{dueDateInfo.helper}</small>}
+      </div>
       <div className="todo-add-card-row" style={{ marginTop: 8 }}>
         <select value={priority} onChange={(e) => setPriority(e.target.value as TodoPriority)} className="todo-add-card-priority">
           <option value="LOW">Low</option>
@@ -266,6 +328,7 @@ export const TodoBoard: React.FC = () => {
 
   const { showToast } = useToast();
   const hasActiveFilters = Boolean(searchQuery.trim()) || filterPriority !== 'ALL' || filterJiraStatus !== 'ALL' || filterDueDate !== 'ALL';
+  const editDueDateInfo = getDueDateInfo(editDueDate);
 
   const loadData = useCallback(async (projectId: string, options: { showLoading?: boolean } = {}) => {
     const { showLoading = true } = options;
@@ -868,7 +931,19 @@ export const TodoBoard: React.FC = () => {
                   <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
                 </div>
                 <div className="todo-edit-row">
-                  <div className="auth-field"><label>Due Date</label><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} /></div>
+                  <div className="auth-field todo-due-field">
+                    <label>Due Date</label>
+                    <div className="todo-due-picker">
+                      <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
+                      <div className="todo-due-quick-actions">
+                        <button type="button" onClick={() => setEditDueDate(getRelativeDateInputValue(0))}>Today</button>
+                        <button type="button" onClick={() => setEditDueDate(getRelativeDateInputValue(1))}>Tomorrow</button>
+                        <button type="button" onClick={() => setEditDueDate(getRelativeDateInputValue(7))}>Next week</button>
+                        {editDueDate && <button type="button" onClick={() => setEditDueDate('')}>Clear</button>}
+                      </div>
+                      <small className={`todo-due-helper todo-due-helper--${editDueDateInfo.state}`}>{editDueDateInfo.helper}</small>
+                    </div>
+                  </div>
                   <div className="auth-field"><label>Position</label><input type="text" value={editingTodo.position + 1} readOnly /></div>
                 </div>
               </section>

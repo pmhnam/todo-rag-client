@@ -179,6 +179,11 @@
   cursor: pointer;
   transition: all 0.2s;
   &:hover { border-color: #c7d2fe; box-shadow: var(--shadow-surface); }
+
+  &.todo-card--overdue {
+    border-color: #fecaca;
+    box-shadow: inset 3px 0 0 #ef4444;
+  }
 }
 .todo-card-header {
   display: flex;
@@ -254,7 +259,27 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  border-radius: 999px;
+  padding: 2px 7px;
   font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-3);
+}
+.todo-card-due--overdue {
+  background: var(--danger-soft);
+  color: #dc2626;
+}
+.todo-card-due--today {
+  background: var(--warning-soft);
+  color: #b45309;
+}
+.todo-card-due--tomorrow {
+  background: var(--active-bg);
+  color: var(--primary-700);
+}
+.todo-card-due--upcoming {
+  background: var(--surface-3);
   color: var(--text-muted);
 }
 .todo-card-jira {
@@ -311,6 +336,63 @@
   padding: 10px;
   margin-top: 4px;
   input { width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 0.85rem; background: var(--surface-0); color: var(--text-primary); &:focus { outline: none; border-color: #667eea; } }
+}
+.todo-due-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &.todo-due-picker--compact {
+    margin-top: 8px;
+  }
+
+  input[type="date"] {
+    width: 100%;
+  }
+}
+.todo-due-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  button {
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    background: var(--surface-1);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 8px;
+
+    &:hover {
+      border-color: #c7d2fe;
+      color: var(--primary-700);
+      background: var(--active-bg);
+    }
+  }
+}
+.todo-due-helper {
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 8px;
+}
+.todo-due-helper--overdue {
+  background: var(--danger-soft);
+  color: #dc2626;
+}
+.todo-due-helper--today {
+  background: var(--warning-soft);
+  color: #b45309;
+}
+.todo-due-helper--tomorrow,
+.todo-due-helper--upcoming {
+  background: var(--active-bg);
+  color: var(--primary-700);
 }
 .todo-add-card-row {
   display: flex;
