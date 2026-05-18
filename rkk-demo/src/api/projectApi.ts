@@ -1,5 +1,14 @@
 import apiClient from './apiClient';
-import type { PaginatedRes, PageParams, Project, CreateProjectReq, UpdateProjectReq } from './types';
+import type {
+  CreateProjectReq,
+  InviteProjectMemberReq,
+  PaginatedRes,
+  PageParams,
+  Project,
+  ProjectMember,
+  UpdateProjectMemberReq,
+  UpdateProjectReq,
+} from './types';
 
 export const projectApi = {
   getAll: (params?: PageParams) =>
@@ -17,4 +26,16 @@ export const projectApi = {
     apiClient.patch<Project>(`/projects/${id}`, data).then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/projects/${id}`),
+
+  getMembers: (id: string) =>
+    apiClient.get<ProjectMember[]>(`/projects/${id}/members`).then((r) => r.data),
+
+  inviteMember: (id: string, data: InviteProjectMemberReq) =>
+    apiClient.post<ProjectMember>(`/projects/${id}/members`, data).then((r) => r.data),
+
+  updateMember: (id: string, memberId: string, data: UpdateProjectMemberReq) =>
+    apiClient.patch<ProjectMember>(`/projects/${id}/members/${memberId}`, data).then((r) => r.data),
+
+  removeMember: (id: string, memberId: string) =>
+    apiClient.delete(`/projects/${id}/members/${memberId}`),
 };

@@ -48,8 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   };
 
-  const register = async (email: string, password: string) => {
-    await authApi.register({ email, password });
+  const register = async (name: string, email: string, password: string) => {
+    await authApi.register({ name, email, password });
   };
 
   const logout = async () => {

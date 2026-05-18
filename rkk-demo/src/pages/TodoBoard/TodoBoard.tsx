@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
 import { todoActivityApi, todoApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
 import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
+import { projectApi } from '../../api/projectApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectMember, ProjectMemberPermission } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -320,6 +321,11 @@ export const TodoBoard: React.FC = () => {
   const [jiraApiToken, setJiraApiToken] = useState('');
   const [jiraProjectKey, setJiraProjectKey] = useState('');
   const [jiraMappings, setJiraMappings] = useState<Record<string, { jiraTransitionId: string; jiraTransitionName: string }>>({});
+  const [showShare, setShowShare] = useState(false);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePermission, setInvitePermission] = useState<ProjectMemberPermission>('READ');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<TodoPriority | 'ALL'>('ALL');
@@ -463,6 +469,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleSaveJiraSettings = async () => {
     if (!selectedProjectId) return;
+    if (!canWrite) return;
     if (!jiraDomain.trim()) {
       showToast('Jira domain is required', 'error');
       return;
@@ -521,6 +528,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleDisconnectJira = async () => {
     if (!selectedProjectId) return;
+    if (!canWrite) return;
     setJiraLoading(true);
     try {
       await jiraIntegrationApi.delete(selectedProjectId);
@@ -533,8 +541,64 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
+  const loadMembers = async (projectId: string) => {
+    setMembersLoading(true);
+    try {
+      setMembers(await projectApi.getMembers(projectId));
+    } catch {
+      showToast('Failed to load collaborators', 'error');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleOpenShare = async () => {
+    if (!selectedProjectId) return;
+    setShowShare(true);
+    await loadMembers(selectedProjectId);
+  };
+
+  const handleInviteMember = async () => {
+    if (!selectedProjectId || !inviteEmail.trim()) return;
+    setMembersLoading(true);
+    try {
+      await projectApi.inviteMember(selectedProjectId, {
+        email: inviteEmail.trim(),
+        permission: invitePermission,
+      });
+      setInviteEmail('');
+      await loadMembers(selectedProjectId);
+      showToast('Collaborator invited', 'success');
+    } catch {
+      showToast('Failed to invite collaborator', 'error');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleUpdateMemberPermission = async (memberId: string, permission: ProjectMemberPermission) => {
+    if (!selectedProjectId) return;
+    try {
+      const updated = await projectApi.updateMember(selectedProjectId, memberId, { permission });
+      setMembers((current) => current.map((member) => member.id === memberId ? updated : member));
+    } catch {
+      showToast('Failed to update collaborator', 'error');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedProjectId) return;
+    try {
+      await projectApi.removeMember(selectedProjectId, memberId);
+      setMembers((current) => current.filter((member) => member.id !== memberId));
+    } catch {
+      showToast('Failed to remove collaborator', 'error');
+    }
+  };
+
   const handleAddCard = async (data: Omit<CreateTodoReq, 'projectId'>) => {
     if (!selectedProjectId) return;
+    if (!canWrite) return;
 
     const previousTodosByStatus = todosByStatus;
     const previousDataSource = dataSource;
@@ -618,6 +682,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleAddComment = async () => {
     if (!editingTodo || !newComment.trim()) return;
+    if (!canWrite) return;
 
     const content = newComment.trim();
     const now = new Date().toISOString();
@@ -678,6 +743,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingTodo || isSavingEdit) return;
+    if (!canWrite) return;
     setIsSavingEdit(true);
     try {
       await todoApi.update(editingTodo.id, { 
@@ -708,12 +774,14 @@ export const TodoBoard: React.FC = () => {
 
   const handleDeleteTodo = async () => {
     if (!deletingTodo || !selectedProjectId) return;
+    if (!canWrite) return;
     try { await todoApi.delete(deletingTodo.id); setDeletingTodo(null); setEditingTodo(null); showToast('Card deleted', 'success'); loadData(selectedProjectId); }
     catch { showToast('Failed to delete card', 'error'); }
   };
 
   const handleCardMove = async (move: { cardId: string; fromColumnId: string; toColumnId: string; taskAbove: string | null; taskBelow: string | null; position: number }) => {
     if (!dataSource) return;
+    if (!canWrite) return;
     const newData = dropHandler(move, dataSource, () => {},
       (newCol) => ({ ...newCol, totalItemsCount: (newCol.totalItemsCount || 0) + 1, totalChildrenCount: (newCol.totalChildrenCount || 0) + 1 }),
       (srcCol) => ({ ...srcCol, totalItemsCount: (srcCol.totalItemsCount || 0) - 1, totalChildrenCount: (srcCol.totalChildrenCount || 0) - 1 }),
@@ -740,6 +808,7 @@ export const TodoBoard: React.FC = () => {
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim() || !selectedProjectId) return;
+    if (!canWrite) return;
     try {
       const createdStatus = await todoStatusApi.create({ projectId: selectedProjectId, name: newColumnName.trim(), color: newColumnColor, order: statuses.length });
       const nextStatuses = [...statuses, createdStatus];
@@ -758,12 +827,14 @@ export const TodoBoard: React.FC = () => {
 
   const handleDeleteColumn = async (columnId: string) => {
     if (!selectedProjectId) return;
+    if (!canWrite) return;
     try { await todoStatusApi.delete(columnId); showToast('Column deleted', 'success'); loadData(selectedProjectId); }
     catch { showToast('Cannot delete column (has cards?)', 'error'); }
   };
 
   const handleColumnMove = async (move: { columnId: string; fromIndex: number; toIndex: number }) => {
     if (!dataSource) return;
+    if (!canWrite) return;
     const newData = dropColumnHandler(move, dataSource);
     setDataSource(newData);
 
@@ -788,6 +859,8 @@ export const TodoBoard: React.FC = () => {
 
   const totalTasks = Array.from(todosByStatus.values()).reduce((a, b) => a + b.length, 0);
   const hasColumns = dataSource && dataSource.root.children.length > 0;
+  const canWrite = selectedProject?.permission === 'WRITE' || selectedProject?.permission === 'WRITE_INVITE';
+  const canInvite = selectedProject?.permission === 'WRITE_INVITE';
 
   return (
     <div className="todo-board">
@@ -797,8 +870,9 @@ export const TodoBoard: React.FC = () => {
           <span className="todo-board-count">{totalTasks} tasks</span>
         </div>
         <div className="todo-board-header-right">
-          <button className="btn-ghost" onClick={handleOpenJiraSettings} disabled={!selectedProjectId}><Settings size={16} /> Jira Settings</button>
-          <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Add Column</button>
+          {canInvite && <button className="btn-ghost" onClick={handleOpenShare} disabled={!selectedProjectId}><Users size={16} /> Share</button>}
+          <button className="btn-ghost" onClick={handleOpenJiraSettings} disabled={!selectedProjectId || !canWrite}><Settings size={16} /> Jira Settings</button>
+          <button className="btn-primary" onClick={() => setShowAddColumn(true)} disabled={!canWrite}><Plus size={16} /> Add Column</button>
         </div>
       </div>
 
@@ -838,7 +912,7 @@ export const TodoBoard: React.FC = () => {
         </div>
       </div>
 
-      {showAddColumn && (
+      {showAddColumn && canWrite && (
         <div className="todo-add-column-bar">
           <input type="text" placeholder="Column name..." value={newColumnName}
             onChange={(e) => setNewColumnName(e.target.value)}
@@ -863,11 +937,11 @@ export const TodoBoard: React.FC = () => {
             dataSource={dataSource}
             configMap={{
               card: {
-                render: ({ data }) => <TodoCard data={data} onOpen={handleEditTodo} onDelete={(todo) => setDeletingTodo(todo)} />,
-                isDraggable: true,
+                render: ({ data }) => <TodoCard data={data} onOpen={handleEditTodo} onDelete={(todo) => canWrite && setDeletingTodo(todo)} />,
+                isDraggable: canWrite,
               },
             }}
-            allowColumnDrag
+            allowColumnDrag={canWrite}
             onColumnMove={handleColumnMove}
             columnClassName={() => 'todo-board-column'}
             renderColumnHeader={(column) => {
@@ -875,12 +949,12 @@ export const TodoBoard: React.FC = () => {
               return (
                 <div className="todo-column-header">
                   <div className="todo-column-header-left">
-                    <GripVertical size={14} className="todo-column-grip" />
+                      {canWrite && <GripVertical size={14} className="todo-column-grip" />}
                     <div className="todo-column-dot" style={{ backgroundColor: color }} />
                     <span className="todo-column-name">{column.title}</span>
                     <span className="todo-column-count">{column.totalItemsCount || 0}</span>
                   </div>
-                  <button className="todo-column-delete" onClick={() => handleDeleteColumn(column.id)} title="Delete column"><Trash2 size={14} /></button>
+                  {canWrite && <button className="todo-column-delete" onClick={() => handleDeleteColumn(column.id)} title="Delete column"><Trash2 size={14} /></button>}
                 </div>
               );
             }}
@@ -891,15 +965,15 @@ export const TodoBoard: React.FC = () => {
               addingCardForColumn === column.id ? (
                 <AddCardForm statusId={column.id} onAdd={handleAddCard} onCancel={() => setAddingCardForColumn(null)} />
               ) : (
-                <button className="todo-add-card-btn" onClick={() => setAddingCardForColumn(column.id)}><Plus size={16} /> Add card</button>
+                canWrite ? <button className="todo-add-card-btn" onClick={() => setAddingCardForColumn(column.id)}><Plus size={16} /> Add card</button> : null
               )
             }
-            allowListFooter={() => true}
+            allowListFooter={() => canWrite}
           />
         ) : (
           <div className="todo-board-empty">
             <AlertCircle size={48} /><h3>No columns yet</h3><p>Create your first column to start organizing tasks</p>
-            <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Create Column</button>
+            {canWrite && <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Create Column</button>}
           </div>
         )}
       </div>
@@ -919,22 +993,22 @@ export const TodoBoard: React.FC = () => {
               <section className="todo-detail-section">
                 <h3>Overview</h3>
                 <div className="todo-edit-form">
-                  <div className="auth-field"><label>Title</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /></div>
-                  <div className="auth-field"><label>Description</label><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={5} placeholder="Describe the task..." /></div>
+                  <div className="auth-field"><label>Title</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} disabled={!canWrite} /></div>
+                  <div className="auth-field"><label>Description</label><textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={5} placeholder="Describe the task..." disabled={!canWrite} /></div>
                 </div>
               </section>
 
               <section className="todo-detail-section">
                 <h3>Planning</h3>
                 <div className="todo-edit-row">
-                  <div className="auth-field"><label>Status</label><select value={editStatusId} onChange={(e) => setEditStatusId(e.target.value)}>{statuses.map((status) => <option key={status.id} value={status.id}>{status.name}</option>)}</select></div>
-                  <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
+                  <div className="auth-field"><label>Status</label><select value={editStatusId} onChange={(e) => setEditStatusId(e.target.value)} disabled={!canWrite}>{statuses.map((status) => <option key={status.id} value={status.id}>{status.name}</option>)}</select></div>
+                  <div className="auth-field"><label>Priority</label><select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TodoPriority)} disabled={!canWrite}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option></select></div>
                 </div>
                 <div className="todo-edit-row">
                   <div className="auth-field todo-due-field">
                     <label>Due Date</label>
                     <div className="todo-due-picker">
-                      <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
+                      <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} disabled={!canWrite} />
                       <div className="todo-due-quick-actions">
                         <button type="button" onClick={() => setEditDueDate(getRelativeDateInputValue(0))}>Today</button>
                         <button type="button" onClick={() => setEditDueDate(getRelativeDateInputValue(1))}>Tomorrow</button>
@@ -950,10 +1024,10 @@ export const TodoBoard: React.FC = () => {
 
               <section className="todo-detail-section">
                 <h3>Metadata</h3>
-                <div className="auth-field"><label>Tags (comma separated)</label><input type="text" value={editTagsStr} onChange={(e) => setEditTagsStr(e.target.value)} placeholder="bug, frontend, urgent" /></div>
-                <div className="auth-field"><label>AI Summary</label><textarea value={editAiSummary} onChange={(e) => setEditAiSummary(e.target.value)} rows={3} placeholder="Brief AI summary..." /></div>
+                  <div className="auth-field"><label>Tags (comma separated)</label><input type="text" value={editTagsStr} onChange={(e) => setEditTagsStr(e.target.value)} placeholder="bug, frontend, urgent" disabled={!canWrite} /></div>
+                  <div className="auth-field"><label>AI Summary</label><textarea value={editAiSummary} onChange={(e) => setEditAiSummary(e.target.value)} rows={3} placeholder="Brief AI summary..." disabled={!canWrite} /></div>
                 <div className="auth-field todo-checkbox-field">
-                  <input type="checkbox" checked={editGeneratedByAi} onChange={(e) => setEditGeneratedByAi(e.target.checked)} id="gen-ai" />
+                  <input type="checkbox" checked={editGeneratedByAi} onChange={(e) => setEditGeneratedByAi(e.target.checked)} id="gen-ai" disabled={!canWrite} />
                   <label htmlFor="gen-ai">Generated by AI</label>
                 </div>
                 <div className="auth-field">
@@ -981,7 +1055,7 @@ export const TodoBoard: React.FC = () => {
                 <h3>Jira</h3>
                 <div className="auth-field">
                   <label>Jira Issue Key</label>
-                  <input type="text" value={editJiraIssueKey} onChange={(e) => setEditJiraIssueKey(e.target.value.toUpperCase())} placeholder="PROJ-123" />
+                  <input type="text" value={editJiraIssueKey} onChange={(e) => setEditJiraIssueKey(e.target.value.toUpperCase())} placeholder="PROJ-123" disabled={!canWrite} />
                   <small>Used to sync status changes with Jira. Leave blank to unlink.</small>
                 </div>
                 <div className="todo-detail-meta-grid">
@@ -998,9 +1072,10 @@ export const TodoBoard: React.FC = () => {
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       rows={3}
-                      placeholder="Add a comment..."
+                      placeholder={canWrite ? 'Add a comment...' : 'Read-only access'}
+                      disabled={!canWrite}
                     />
-                    <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()}><Send size={14} /> Add Comment</button>
+                    <button className="btn-primary" onClick={handleAddComment} disabled={!canWrite || !newComment.trim()}><Send size={14} /> Add Comment</button>
                   </div>
 
                   {commentsLoading ? (
@@ -1026,7 +1101,7 @@ export const TodoBoard: React.FC = () => {
                           ) : (
                             <>
                               <p>{comment.content}</p>
-                              {!comment.id.startsWith('temp-') && (
+                              {canWrite && !comment.id.startsWith('temp-') && (
                                 <div className="todo-comment-actions">
                                   <button className="btn-ghost" onClick={() => handleStartEditComment(comment)}>Edit</button>
                                   <button className="btn-ghost" onClick={() => handleDeleteComment(comment.id)}>Delete</button>
@@ -1083,10 +1158,10 @@ export const TodoBoard: React.FC = () => {
             </div>
 
             <div className="todo-detail-footer">
-              <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)} disabled={isSavingEdit}><Trash2 size={16} /> Delete</button>
+              {canWrite && <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)} disabled={isSavingEdit}><Trash2 size={16} /> Delete</button>}
               <div className="todo-detail-footer-actions">
                 <button className="btn-ghost" onClick={() => setEditingTodo(null)} disabled={isSavingEdit}>Cancel</button>
-                <button className="btn-primary" onClick={handleSaveEdit} disabled={isSavingEdit}>
+                <button className="btn-primary" onClick={handleSaveEdit} disabled={isSavingEdit || !canWrite}>
                   {isSavingEdit ? <><Spinner size="sm" /> Saving...</> : 'Save Changes'}
                 </button>
               </div>
@@ -1126,6 +1201,39 @@ export const TodoBoard: React.FC = () => {
               ))}
               {statuses.length === 0 && <p>No columns yet. Create columns before adding transition mappings.</p>}
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showShare} onClose={() => setShowShare(false)} title="Share Board" size="lg">
+        <div className="todo-jira-settings">
+          <div className="todo-jira-section">
+            <h4>Invite collaborator</h4>
+            <div className="todo-edit-row">
+              <div className="auth-field"><label>Email</label><input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="teammate@example.com" /></div>
+              <div className="auth-field"><label>Permission</label><select value={invitePermission} onChange={(e) => setInvitePermission(e.target.value as ProjectMemberPermission)}><option value="READ">Read only</option><option value="WRITE">Write</option><option value="WRITE_INVITE">Write and invite</option></select></div>
+            </div>
+            <button className="btn-primary" onClick={handleInviteMember} disabled={membersLoading || !inviteEmail.trim()}><Users size={16} /> Invite</button>
+          </div>
+          <div className="todo-jira-section">
+            <h4>Collaborators</h4>
+            {membersLoading ? <div className="todo-comments-empty"><Spinner size="sm" /> Loading collaborators...</div> : members.length === 0 ? <p>No collaborators yet.</p> : (
+              <div className="todo-comment-list">
+                {members.map((member) => (
+                  <div className="todo-comment" key={member.id}>
+                    <div className="todo-comment-meta"><span>{member.userName || member.userEmail || member.userId}</span><time>{member.userEmail}</time></div>
+                    <div className="todo-comment-actions">
+                      <select value={member.permission} onChange={(e) => handleUpdateMemberPermission(member.id, e.target.value as ProjectMemberPermission)} disabled={membersLoading}>
+                        <option value="READ">Read only</option>
+                        <option value="WRITE">Write</option>
+                        <option value="WRITE_INVITE">Write and invite</option>
+                      </select>
+                      <button className="btn-ghost" onClick={() => handleRemoveMember(member.id)} disabled={membersLoading}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Modal>

@@ -36,6 +36,7 @@ export interface LoginRes {
 }
 
 export interface RegisterReq {
+  name: string;
   email: string;
   password: string;
 }
@@ -56,6 +57,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  name: string;
   bio?: string;
   image: string;
   createdAt: string;
@@ -68,8 +70,32 @@ export interface Project {
   description?: string;
   userId: string;
   settings?: Record<string, unknown>;
+  isOwner: boolean;
+  permission: ProjectMemberPermission;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ProjectMemberPermission = 'READ' | 'WRITE' | 'WRITE_INVITE';
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  permission: ProjectMemberPermission;
+  createdAt: string;
+}
+
+export interface InviteProjectMemberReq {
+  userId?: string;
+  email?: string;
+  permission: ProjectMemberPermission;
+}
+
+export interface UpdateProjectMemberReq {
+  permission: ProjectMemberPermission;
 }
 
 export interface CreateProjectReq {

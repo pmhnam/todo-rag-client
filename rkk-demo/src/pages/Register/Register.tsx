@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/useAuth';
 import { useToast } from '../../components/Toast';
-import { UserPlus, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { UserPlus, Mail, Lock, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +17,7 @@ export const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !confirmPassword) {
+    if (!name.trim() || !email || !password || !confirmPassword) {
       showToast('Please fill in all fields', 'warning');
       return;
     }
@@ -30,7 +31,7 @@ export const Register: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      await register(email, password);
+      await register(name.trim(), email, password);
       showToast('Account created! Please sign in.', 'success');
       navigate('/login', { replace: true });
     } catch (err: unknown) {
@@ -61,6 +62,22 @@ export const Register: React.FC = () => {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
+            <label htmlFor="reg-name">Name</label>
+            <div className="auth-input-wrapper">
+              <User size={18} className="auth-input-icon" />
+              <input
+                id="reg-name"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="auth-field">
             <label htmlFor="reg-email">Email</label>
             <div className="auth-input-wrapper">
               <Mail size={18} className="auth-input-icon" />
@@ -71,7 +88,6 @@ export const Register: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                autoFocus
               />
             </div>
           </div>
