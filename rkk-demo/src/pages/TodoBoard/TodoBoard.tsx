@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Kanban, type BoardData, type BoardItem, dropHandler, dropColumnHandler } from 'react-kanban-kit';
-import { todoActivityApi, todoApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
+import { todoActivityApi, todoApi, todoAttachmentApi, todoCommentApi, todoStatusApi } from '../../api/todoApi';
 import { jiraIntegrationApi } from '../../api/jiraIntegrationApi';
 import { projectApi } from '../../api/projectApi';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectMember, ProjectMemberPermission } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectMember, ProjectMemberPermission, TodoAttachment } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users, Paperclip, Upload
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -153,6 +153,14 @@ function formatActivityValue(value: unknown) {
   if (Array.isArray(value)) return value.join(', ') || 'empty';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function isImageAttachment(attachment: TodoAttachment) {
+  return attachment.kind === 'IMAGE' || attachment.mimeType.startsWith('image/');
+}
+
+function isVideoAttachment(attachment: TodoAttachment) {
+  return attachment.kind === 'VIDEO' || attachment.mimeType.startsWith('video/');
 }
 
 // ─── TodoCard ──────────────────────────────────────────
@@ -309,6 +317,8 @@ export const TodoBoard: React.FC = () => {
   const [activities, setActivities] = useState<TodoActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [newCommentImages, setNewCommentImages] = useState<File[]>([]);
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
   const [deletingTodo, setDeletingTodo] = useState<Todo | null>(null);
@@ -658,6 +668,7 @@ export const TodoBoard: React.FC = () => {
     setEditJiraIssueKey(todo.jiraIssueKey || '');
     setIsSavingEdit(false);
     setNewComment('');
+    setNewCommentImages([]);
     setEditingCommentId(null);
     setEditingCommentContent('');
     setCommentsLoading(true);
@@ -680,11 +691,75 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
+  const uploadAttachment = async (todoId: string, file: File) => {
+    const presigned = await todoAttachmentApi.presign(todoId, {
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+    });
+    await todoAttachmentApi.uploadToStorage(presigned.uploadUrl, file, presigned.headers);
+    return todoAttachmentApi.complete(todoId, {
+      key: presigned.key,
+      url: presigned.publicUrl,
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+    });
+  };
+
+  const handleUploadTaskAttachments = async (files: FileList | null) => {
+    if (!editingTodo || !files?.length || !canWrite) return;
+    setAttachmentsUploading(true);
+    try {
+      const saved = await Promise.all(Array.from(files).map((file) => uploadAttachment(editingTodo.id, file)));
+      setEditingTodo((current) => current ? { ...current, attachments: [...(current.attachments || []), ...saved] } : current);
+      showToast('Attachment uploaded', 'success');
+    } catch {
+      showToast('Failed to upload attachment', 'error');
+    } finally {
+      setAttachmentsUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!editingTodo || !canWrite) return;
+    const previous = editingTodo.attachments || [];
+    setEditingTodo({ ...editingTodo, attachments: previous.filter((attachment) => attachment.id !== attachmentId) });
+    try {
+      await todoAttachmentApi.delete(editingTodo.id, attachmentId);
+    } catch {
+      setEditingTodo({ ...editingTodo, attachments: previous });
+      showToast('Failed to delete attachment', 'error');
+    }
+  };
+
   const handleAddComment = async () => {
-    if (!editingTodo || !newComment.trim()) return;
+    if (!editingTodo || (!newComment.trim() && newCommentImages.length === 0)) return;
     if (!canWrite) return;
 
     const content = newComment.trim();
+    const imageFiles = newCommentImages;
+
+    if (imageFiles.length > 0) {
+      setAttachmentsUploading(true);
+      try {
+        const uploaded = await Promise.all(imageFiles.map((file) => uploadAttachment(editingTodo.id, file)));
+        const saved = await todoCommentApi.create(editingTodo.id, {
+          content: content || undefined,
+          attachmentKeys: uploaded.map((attachment) => attachment.storageKey),
+        });
+        setComments((current) => [...current, saved]);
+        setNewComment('');
+        setNewCommentImages([]);
+        await reloadActivities(editingTodo.id);
+      } catch {
+        showToast('Failed to add comment', 'error');
+      } finally {
+        setAttachmentsUploading(false);
+      }
+      return;
+    }
+
     const now = new Date().toISOString();
     const tempComment: TodoComment = {
       id: `temp-${Date.now()}`,
@@ -861,6 +936,33 @@ export const TodoBoard: React.FC = () => {
   const hasColumns = dataSource && dataSource.root.children.length > 0;
   const canWrite = selectedProject?.permission === 'WRITE' || selectedProject?.permission === 'WRITE_INVITE';
   const canInvite = selectedProject?.permission === 'WRITE_INVITE';
+  const renderAttachments = (attachments: TodoAttachment[] = [], compact = false) => {
+    if (attachments.length === 0) return null;
+
+    return (
+      <div className={compact ? 'todo-attachment-grid todo-attachment-grid--compact' : 'todo-attachment-grid'}>
+        {attachments.map((attachment) => (
+          <div className="todo-attachment" key={attachment.id}>
+            {isImageAttachment(attachment) ? (
+              <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                <img src={attachment.url} alt={attachment.originalName} />
+              </a>
+            ) : isVideoAttachment(attachment) ? (
+              <video src={attachment.url} controls />
+            ) : (
+              <a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.originalName}</a>
+            )}
+            {!compact && (
+              <div className="todo-attachment-meta">
+                <span title={attachment.originalName}>{attachment.originalName}</span>
+                {canWrite && <button type="button" onClick={() => handleDeleteAttachment(attachment.id)}><X size={13} /></button>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="todo-board">
@@ -1065,6 +1167,27 @@ export const TodoBoard: React.FC = () => {
               </section>
 
               <section className="todo-detail-section">
+                <h3><Paperclip size={15} /> Attachments</h3>
+                {renderAttachments((editingTodo.attachments || []).filter((attachment) => !attachment.commentId)) || <div className="todo-comments-empty">No attachments yet.</div>}
+                {canWrite && (
+                  <label className="todo-upload-dropzone">
+                    <Upload size={16} />
+                    <span>{attachmentsUploading ? 'Uploading...' : 'Upload images or videos'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4,video/webm,video/quicktime"
+                      multiple
+                      disabled={attachmentsUploading}
+                      onChange={(e) => {
+                        void handleUploadTaskAttachments(e.target.files);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                )}
+              </section>
+
+              <section className="todo-detail-section">
                 <h3><MessageSquare size={15} /> Comments</h3>
                 <div className="todo-comments">
                   <div className="todo-comment-composer">
@@ -1075,7 +1198,26 @@ export const TodoBoard: React.FC = () => {
                       placeholder={canWrite ? 'Add a comment...' : 'Read-only access'}
                       disabled={!canWrite}
                     />
-                    <button className="btn-primary" onClick={handleAddComment} disabled={!canWrite || !newComment.trim()}><Send size={14} /> Add Comment</button>
+                    {newCommentImages.length > 0 && (
+                      <div className="todo-pending-images">
+                        {newCommentImages.map((file, index) => (
+                          <span key={`${file.name}-${index}`}>{file.name}<button type="button" onClick={() => setNewCommentImages((current) => current.filter((_, i) => i !== index))}><X size={12} /></button></span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="todo-comment-composer-actions">
+                      <label className="btn-ghost todo-comment-image-picker">
+                        <Paperclip size={14} /> Images
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={!canWrite || attachmentsUploading}
+                          onChange={(e) => setNewCommentImages(Array.from(e.target.files || []))}
+                        />
+                      </label>
+                      <button className="btn-primary" onClick={handleAddComment} disabled={!canWrite || attachmentsUploading || (!newComment.trim() && newCommentImages.length === 0)}><Send size={14} /> Add Comment</button>
+                    </div>
                   </div>
 
                   {commentsLoading ? (
@@ -1100,7 +1242,8 @@ export const TodoBoard: React.FC = () => {
                             </div>
                           ) : (
                             <>
-                              <p>{comment.content}</p>
+                              {comment.content && <p>{comment.content}</p>}
+                              {renderAttachments(comment.attachments || [], true)}
                               {canWrite && !comment.id.startsWith('temp-') && (
                                 <div className="todo-comment-actions">
                                   <button className="btn-ghost" onClick={() => handleStartEditComment(comment)}>Edit</button>

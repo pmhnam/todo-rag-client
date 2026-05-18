@@ -156,6 +156,24 @@ export interface Todo {
   externalLinks?: { name: string; url: string }[];
   aiSummary?: string;
   generatedByAi?: boolean;
+  attachments?: TodoAttachment[];
+}
+
+export type TodoAttachmentKind = 'IMAGE' | 'VIDEO';
+
+export interface TodoAttachment {
+  id: string;
+  todoId: string;
+  commentId?: string;
+  userId: string;
+  kind: TodoAttachmentKind;
+  storageKey: string;
+  url: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTodoReq {
@@ -197,14 +215,38 @@ export interface TodoComment {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  attachments?: TodoAttachment[];
 }
 
 export interface CreateTodoCommentReq {
-  content: string;
+  content?: string;
+  attachmentKeys?: string[];
 }
 
 export interface UpdateTodoCommentReq {
   content?: string;
+}
+
+export interface PresignTodoAttachmentReq {
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface PresignTodoAttachmentRes {
+  key: string;
+  uploadUrl: string;
+  publicUrl: string;
+  headers: Record<string, string>;
+}
+
+export interface CompleteTodoAttachmentReq {
+  key: string;
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  commentId?: string;
 }
 
 export type TodoActivityType =

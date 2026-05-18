@@ -626,6 +626,129 @@
   }
 }
 
+.todo-comment-composer-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.todo-comment-image-picker,
+.todo-upload-dropzone {
+  cursor: pointer;
+  position: relative;
+
+  input {
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    width: 1px;
+  }
+}
+
+.todo-pending-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  span {
+    align-items: center;
+    background: var(--active-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    font-size: 0.72rem;
+    gap: 5px;
+    padding: 4px 8px;
+  }
+
+  button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--text-subtle);
+    cursor: pointer;
+    display: inline-flex;
+    padding: 0;
+  }
+}
+
+.todo-upload-dropzone {
+  align-items: center;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 12px;
+  transition: all 0.18s;
+
+  &:hover {
+    background: var(--hover-bg);
+    border-color: #667eea;
+    color: var(--text-primary);
+  }
+}
+
+.todo-attachment-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.todo-attachment-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  margin-top: 8px;
+}
+
+.todo-attachment {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+
+  img,
+  video {
+    aspect-ratio: 16 / 10;
+    background: #0f172a;
+    display: block;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.todo-attachment-meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 7px 8px;
+
+  span {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--text-subtle);
+    cursor: pointer;
+    display: inline-flex;
+    padding: 2px;
+
+    &:hover { color: #ef4444; }
+  }
+}
+
 .todo-comments-empty {
   display: flex;
   align-items: center;

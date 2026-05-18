@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import axios from 'axios';
 import type {
   Todo,
   TodoStatus,
@@ -15,6 +16,10 @@ import type {
   ListTodoParams,
   ListTodoStatusParams,
   PaginatedRes,
+  CompleteTodoAttachmentReq,
+  PresignTodoAttachmentReq,
+  PresignTodoAttachmentRes,
+  TodoAttachment,
 } from './types';
 
 // ─── Todo Status API ───────────────────────────────────
@@ -80,6 +85,24 @@ export const todoCommentApi = {
 
   delete: (todoId: string, commentId: string) =>
     apiClient.delete(`/todos/${todoId}/comments/${commentId}`),
+};
+
+export const todoAttachmentApi = {
+  presign: (todoId: string, data: PresignTodoAttachmentReq) =>
+    apiClient
+      .post<PresignTodoAttachmentRes>(`/todos/${todoId}/attachments/presign`, data)
+      .then((r) => r.data),
+
+  uploadToStorage: (uploadUrl: string, file: File, headers: Record<string, string>) =>
+    axios.put(uploadUrl, file, { headers }),
+
+  complete: (todoId: string, data: CompleteTodoAttachmentReq) =>
+    apiClient
+      .post<TodoAttachment>(`/todos/${todoId}/attachments/complete`, data)
+      .then((r) => r.data),
+
+  delete: (todoId: string, attachmentId: string) =>
+    apiClient.delete(`/todos/${todoId}/attachments/${attachmentId}`),
 };
 
 export const todoActivityApi = {
