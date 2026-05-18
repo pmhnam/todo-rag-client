@@ -10,12 +10,12 @@
     @include flex-start;
     gap: var(--space-4);
     padding: var(--space-5);
-    color: var(--gray-600);
+    color: var(--text-muted);
     text-decoration: none;
     border: 2px solid transparent;
     position: relative;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--surface-glass-strong);
     backdrop-filter: blur(10px);
 
     // Subtle gradient border animation
@@ -57,7 +57,7 @@
     }
 
     &:hover {
-      color: var(--gray-900);
+      color: var(--text-primary);
       transform: translateY(-6px) scale(1.02);
       box-shadow: var(--shadow-2xl), var(--shadow-primary);
       border-color: rgba(59, 130, 246, 0.1);
@@ -78,16 +78,12 @@
       }
 
       .#{$demo-prefix}-navigation-item-description {
-        color: var(--primary-600);
+        color: var(--primary-400);
       }
     }
 
     &.active {
-      background: linear-gradient(
-        135deg,
-        var(--primary-50),
-        rgba(59, 130, 246, 0.08)
-      );
+      background: var(--active-bg);
       color: var(--primary-700);
       border-color: var(--primary-200);
       box-shadow: var(--shadow-lg), var(--shadow-primary);
@@ -147,8 +143,8 @@
       width: 52px;
       height: 52px;
       border-radius: var(--radius-2xl);
-      background: rgba(148, 163, 184, 0.1);
-      color: var(--gray-600);
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text-muted);
       transition: all var(--transition-base);
       position: relative;
       overflow: hidden;
@@ -210,7 +206,7 @@
     &-description {
       font-size: 0.8125rem;
       font-weight: 400;
-      color: var(--gray-500);
+      color: var(--text-subtle);
       @include text-truncate;
       line-height: 1.4;
       letter-spacing: 0.025em;
@@ -251,7 +247,7 @@
     @include flex-col-center;
     padding: var(--space-16) var(--space-8);
     text-align: center;
-    color: var(--gray-500);
+    color: var(--text-subtle);
 
     &-icon {
       font-size: 3rem;

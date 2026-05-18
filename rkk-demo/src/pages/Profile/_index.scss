@@ -2,8 +2,8 @@
   display: flex; align-items: center; justify-content: center; height: 100%; padding: 20px;
 }
 .profile-card {
-  width: 100%; max-width: 420px; background: white; border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08); overflow: hidden;
+  width: 100%; max-width: 420px; background: var(--surface-0); border: 1px solid var(--border-subtle); border-radius: 20px;
+  box-shadow: var(--shadow-surface); overflow: hidden;
   animation: authSlideUp 0.4s ease;
 }
 .profile-cover {
@@ -26,14 +26,14 @@
 .profile-info {
   text-align: center; padding: 16px 24px 0;
 }
-.profile-name { font-size: 1.25rem; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
-.profile-bio { font-size: 0.85rem; color: #6b7280; }
+.profile-name { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
+.profile-bio { font-size: 0.85rem; color: var(--text-muted); }
 .profile-details {
   padding: 20px 24px; display: flex; flex-direction: column; gap: 12px;
 }
 .profile-detail-item {
-  display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #4b5563;
-  svg { color: #9ca3af; flex-shrink: 0; }
+  display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted);
+  svg { color: var(--text-subtle); flex-shrink: 0; }
 }
 .profile-logout {
   margin: 8px 24px 24px; width: calc(100% - 48px);

@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/useAuth";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useToast } from "../Toast";
-import { Settings, LogOut, UserCircle, LogIn } from "lucide-react";
+import { Settings, LogOut, UserCircle, LogIn, Moon, Sun } from "lucide-react";
 
 export const Header: React.FC = () => {
   const { t } = useTranslation();
   const { user, isAuthenticated, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -59,6 +61,15 @@ export const Header: React.FC = () => {
 
         <div className="rkk-demo-header-right">
           <nav className="rkk-demo-header-nav">
+            <button
+              className="rkk-demo-header-nav-item"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             <button
               className="rkk-demo-header-nav-item"
               title={t("header.settings")}

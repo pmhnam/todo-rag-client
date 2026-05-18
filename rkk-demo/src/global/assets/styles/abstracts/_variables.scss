@@ -16,6 +16,35 @@ $demo-prefix: "rkk-demo";
   --sidebar-bg: linear-gradient(145deg, #fafbff 0%, #f5f7ff 100%);
   --sidebar-border: rgba(59, 130, 246, 0.08);
 
+  // Theme surface tokens
+  --app-bg: linear-gradient(135deg, var(--gray-25) 0%, var(--gray-50) 100%);
+  --app-overlay: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.02) 0%,
+    rgba(147, 197, 253, 0.01) 50%,
+    transparent 100%
+  );
+  --surface-0: #ffffff;
+  --surface-1: #fbfdff;
+  --surface-2: #f8fafc;
+  --surface-3: #f3f4f6;
+  --surface-overlay: rgba(255, 255, 255, 0.95);
+  --surface-glass: rgba(255, 255, 255, 0.85);
+  --surface-glass-strong: rgba(255, 255, 255, 0.95);
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-subtle: #9ca3af;
+  --border-subtle: #e5e7eb;
+  --border-strong: #d1d5db;
+  --hover-bg: #f3f4f6;
+  --active-bg: #e0e7ff;
+  --danger-soft: #fef2f2;
+  --info-soft: #dbeafe;
+  --warning-soft: #fef3c7;
+  --code-bg: rgba(17, 24, 39, 0.08);
+  --shadow-surface: 0 4px 12px rgba(15, 23, 42, 0.06);
+
   // Professional color palette
   --primary-50: #eff6ff;
   --primary-100: #dbeafe;
@@ -199,4 +228,59 @@ $demo-prefix: "rkk-demo";
   --tracking-tight: -0.025em;
   --tracking-normal: 0em;
   --tracking-wide: 0.025em;
+}
+
+[data-theme="dark"] {
+  --header-bg: rgba(15, 23, 42, 0.86);
+  --header-border: rgba(148, 163, 184, 0.18);
+  --header-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  --sidebar-bg: linear-gradient(145deg, #0f172a 0%, #111827 100%);
+  --sidebar-border: rgba(148, 163, 184, 0.16);
+
+  --gray-25: #020617;
+  --gray-50: #0f172a;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-400: #64748b;
+  --gray-500: #94a3b8;
+  --gray-600: #cbd5e1;
+  --gray-700: #e2e8f0;
+  --gray-800: #f1f5f9;
+  --gray-900: #f8fafc;
+  --gray-950: #ffffff;
+
+  --app-bg: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 32%),
+    linear-gradient(135deg, #020617 0%, #0f172a 56%, #111827 100%);
+  --app-overlay: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.12) 0%,
+    rgba(14, 165, 233, 0.05) 50%,
+    transparent 100%
+  );
+  --surface-0: #111827;
+  --surface-1: #0f172a;
+  --surface-2: #1e293b;
+  --surface-3: #273449;
+  --surface-overlay: rgba(15, 23, 42, 0.94);
+  --surface-glass: rgba(15, 23, 42, 0.78);
+  --surface-glass-strong: rgba(15, 23, 42, 0.96);
+  --text-primary: #f8fafc;
+  --text-secondary: #e2e8f0;
+  --text-muted: #cbd5e1;
+  --text-subtle: #94a3b8;
+  --border-subtle: #334155;
+  --border-strong: #475569;
+  --hover-bg: #1e293b;
+  --active-bg: rgba(59, 130, 246, 0.22);
+  --danger-soft: rgba(239, 68, 68, 0.14);
+  --info-soft: rgba(59, 130, 246, 0.18);
+  --warning-soft: rgba(245, 158, 11, 0.16);
+  --code-bg: rgba(226, 232, 240, 0.12);
+  --shadow-surface: 0 18px 42px rgba(0, 0, 0, 0.28);
+  --bg-pattern-dots: radial-gradient(
+    circle at 1px 1px,
+    rgba(148, 163, 184, 0.13) 1px,
+    transparent 0
+  );
 }

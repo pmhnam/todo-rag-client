@@ -33,7 +33,7 @@
   z-index: 1;
   width: 100%;
   max-width: 420px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface-overlay);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 40px;
@@ -53,12 +53,12 @@
   h1 {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 12px 0 4px;
   }
 
   p {
-    color: #6b7280;
+    color: var(--text-muted);
     font-size: 0.9rem;
   }
 }
@@ -92,23 +92,23 @@
   label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   input, textarea, select {
     width: 100%;
     padding: 10px 12px;
-    border: 1.5px solid #e5e7eb;
+    border: 1.5px solid var(--border-subtle);
     border-radius: 10px;
     font-size: 0.9rem;
     transition: border-color 0.2s;
-    background: #f9fafb;
-    color: #1f2937;
+    background: var(--surface-1);
+    color: var(--text-primary);
 
     &:focus {
       outline: none;
       border-color: #667eea;
-      background: white;
+      background: var(--surface-0);
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
   }
@@ -137,7 +137,7 @@
 .auth-input-icon {
   position: absolute;
   left: 12px;
-  color: #9ca3af;
+  color: var(--text-subtle);
   pointer-events: none;
 }
 
@@ -146,12 +146,12 @@
   right: 8px;
   background: none;
   border: none;
-  color: #9ca3af;
+  color: var(--text-subtle);
   cursor: pointer;
   padding: 4px;
   display: flex;
 
-  &:hover { color: #6b7280; }
+  &:hover { color: var(--text-muted); }
 }
 
 .auth-submit {
@@ -197,7 +197,7 @@
   text-align: center;
   margin-top: 24px;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .auth-link {

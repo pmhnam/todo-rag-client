@@ -131,11 +131,11 @@ const TodoCard: React.FC<{
       </div>
       <div className="todo-card-title">{todo.title}</div>
       {todo.description && <div className="todo-card-description">{todo.description}</div>}
-      {todo.aiSummary && <div className="todo-card-ai-summary" style={{ fontSize: '11px', color: '#6b7280', marginTop: 4, fontStyle: 'italic', background: '#f3f4f6', padding: '4px 6px', borderRadius: 4 }}>✨ {todo.aiSummary}</div>}
+      {todo.aiSummary && <div className="todo-card-ai-summary">✨ {todo.aiSummary}</div>}
       {todo.tags && todo.tags.length > 0 && (
-        <div className="todo-card-tags" style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+        <div className="todo-card-tags">
           {todo.tags.map(tag => (
-            <span key={tag} style={{ fontSize: '10px', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: 10 }}>#{tag}</span>
+            <span key={tag}>#{tag}</span>
           ))}
         </div>
       )}
