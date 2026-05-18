@@ -157,6 +157,8 @@ export interface Todo {
   aiSummary?: string;
   generatedByAi?: boolean;
   attachments?: TodoAttachment[];
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 export type TodoAttachmentKind = 'IMAGE' | 'VIDEO';
@@ -254,6 +256,8 @@ export type TodoActivityType =
   | 'TASK_UPDATED'
   | 'TASK_MOVED'
   | 'TASK_DELETED'
+  | 'TASK_ARCHIVED'
+  | 'TASK_UNARCHIVED'
   | 'JIRA_LINKED'
   | 'JIRA_UNLINKED'
   | 'JIRA_SYNCED'
@@ -284,6 +288,7 @@ export interface ListTodoParams {
   statusId?: string;
   priority?: TodoPriority;
   jiraSyncStatus?: JiraSyncStatus;
+  archived?: boolean;
 }
 
 export interface ListTodoStatusParams extends PageParams {

@@ -65,6 +65,12 @@ export const todoApi = {
   linkJiraIssue: (id: string, data: LinkJiraIssueReq) =>
     apiClient.patch<Todo>(`/todos/${id}/jira-link`, data).then((r) => r.data),
 
+  archive: (id: string) =>
+    apiClient.patch<Todo>(`/todos/${id}/archive`).then((r) => r.data),
+
+  unarchive: (id: string) =>
+    apiClient.patch<Todo>(`/todos/${id}/unarchive`).then((r) => r.data),
+
   reorder: (data: ReorderTodosReq) =>
     apiClient.patch<void>('/todos/reorder', data).then((r) => r.data),
 

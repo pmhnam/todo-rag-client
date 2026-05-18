@@ -11,7 +11,7 @@ import { JiraAuthType } from '../../api/types';
 import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectMember, ProjectMemberPermission, TodoAttachment } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
-  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users, Paperclip, Upload
+  Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users, Paperclip, Upload, Archive, RotateCcw
 } from 'lucide-react';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -169,7 +169,8 @@ const TodoCard: React.FC<{
   data: BoardItem;
   onOpen: (todo: Todo) => void;
   onDelete: (todo: Todo) => void;
-}> = ({ data, onOpen, onDelete }) => {
+  onArchiveToggle: (todo: Todo) => void;
+}> = ({ data, onOpen, onDelete, onArchiveToggle }) => {
   const todo = data.content as Todo;
   const dueDateInfo = getDueDateInfo(todo?.dueDate);
   if (!todo?.priority) return <div className="todo-card"><div className="todo-card-title">{data.title}</div></div>;
@@ -183,6 +184,7 @@ const TodoCard: React.FC<{
         </div>
         <div className="todo-card-actions">
           <button onClick={(e) => { e.stopPropagation(); onOpen(todo); }} title="Open details"><Edit3 size={14} /></button>
+          <button onClick={(e) => { e.stopPropagation(); onArchiveToggle(todo); }} title={todo.archivedAt ? 'Restore' : 'Archive'}>{todo.archivedAt ? <RotateCcw size={14} /> : <Archive size={14} />}</button>
           <button onClick={(e) => { e.stopPropagation(); onDelete(todo); }} title="Delete"><Trash2 size={14} /></button>
         </div>
       </div>
@@ -341,9 +343,10 @@ export const TodoBoard: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<TodoPriority | 'ALL'>('ALL');
   const [filterJiraStatus, setFilterJiraStatus] = useState<JiraSyncStatus | 'ALL'>('ALL');
   const [filterDueDate, setFilterDueDate] = useState<DueDateFilter>('ALL');
+  const [filterArchived, setFilterArchived] = useState(false);
 
   const { showToast } = useToast();
-  const hasActiveFilters = Boolean(searchQuery.trim()) || filterPriority !== 'ALL' || filterJiraStatus !== 'ALL' || filterDueDate !== 'ALL';
+  const hasActiveFilters = Boolean(searchQuery.trim()) || filterPriority !== 'ALL' || filterJiraStatus !== 'ALL' || filterDueDate !== 'ALL' || filterArchived;
   const editDueDateInfo = getDueDateInfo(editDueDate);
 
   const loadData = useCallback(async (projectId: string, options: { showLoading?: boolean } = {}) => {
@@ -366,6 +369,7 @@ export const TodoBoard: React.FC = () => {
         q: searchQuery.trim() || undefined,
         priority: filterPriority === 'ALL' ? undefined : filterPriority,
         jiraSyncStatus: filterJiraStatus === 'ALL' ? undefined : filterJiraStatus,
+        archived: filterArchived || undefined,
       });
       for (const todo of todos) {
         if (!matchesDueDateFilter(todo, filterDueDate)) continue;
@@ -387,7 +391,7 @@ export const TodoBoard: React.FC = () => {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [filterDueDate, filterJiraStatus, filterPriority, hasActiveFilters, searchQuery, setBoardCache, showToast]);
+  }, [filterArchived, filterDueDate, filterJiraStatus, filterPriority, hasActiveFilters, searchQuery, setBoardCache, showToast]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setSearchQuery(searchInput), 300);
@@ -816,6 +820,23 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
+  const handleArchiveToggle = async (todo: Todo) => {
+    if (!selectedProjectId || !canWrite) return;
+    try {
+      if (todo.archivedAt) {
+        await todoApi.unarchive(todo.id);
+        showToast('Task restored', 'success');
+      } else {
+        await todoApi.archive(todo.id);
+        showToast('Task archived', 'success');
+      }
+      if (editingTodo?.id === todo.id) setEditingTodo(null);
+      await loadData(selectedProjectId, { showLoading: false });
+    } catch {
+      showToast(todo.archivedAt ? 'Failed to restore task' : 'Failed to archive task', 'error');
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editingTodo || isSavingEdit) return;
     if (!canWrite) return;
@@ -926,6 +947,7 @@ export const TodoBoard: React.FC = () => {
     setFilterPriority('ALL');
     setFilterJiraStatus('ALL');
     setFilterDueDate('ALL');
+    setFilterArchived(false);
   };
 
   if (isProjectLoading || isLoading) {
@@ -935,6 +957,7 @@ export const TodoBoard: React.FC = () => {
   const totalTasks = Array.from(todosByStatus.values()).reduce((a, b) => a + b.length, 0);
   const hasColumns = dataSource && dataSource.root.children.length > 0;
   const canWrite = selectedProject?.permission === 'WRITE' || selectedProject?.permission === 'WRITE_INVITE';
+  const canManageBoard = canWrite && !filterArchived;
   const canInvite = selectedProject?.permission === 'WRITE_INVITE';
   const renderAttachments = (attachments: TodoAttachment[] = [], compact = false) => {
     if (attachments.length === 0) return null;
@@ -974,7 +997,7 @@ export const TodoBoard: React.FC = () => {
         <div className="todo-board-header-right">
           {canInvite && <button className="btn-ghost" onClick={handleOpenShare} disabled={!selectedProjectId}><Users size={16} /> Share</button>}
           <button className="btn-ghost" onClick={handleOpenJiraSettings} disabled={!selectedProjectId || !canWrite}><Settings size={16} /> Jira Settings</button>
-          <button className="btn-primary" onClick={() => setShowAddColumn(true)} disabled={!canWrite}><Plus size={16} /> Add Column</button>
+          <button className="btn-primary" onClick={() => setShowAddColumn(true)} disabled={!canManageBoard}><Plus size={16} /> Add Column</button>
         </div>
       </div>
 
@@ -1010,11 +1033,15 @@ export const TodoBoard: React.FC = () => {
             <option value="UPCOMING">Upcoming</option>
             <option value="NO_DUE">No due date</option>
           </select>
+          <select value={filterArchived ? 'ARCHIVED' : 'ACTIVE'} onChange={(e) => setFilterArchived(e.target.value === 'ARCHIVED')}>
+            <option value="ACTIVE">Active tasks</option>
+            <option value="ARCHIVED">Archived tasks</option>
+          </select>
           {hasActiveFilters && <button className="btn-ghost" onClick={resetFilters}>Clear filters</button>}
         </div>
       </div>
 
-      {showAddColumn && canWrite && (
+      {showAddColumn && canManageBoard && (
         <div className="todo-add-column-bar">
           <input type="text" placeholder="Column name..." value={newColumnName}
             onChange={(e) => setNewColumnName(e.target.value)}
@@ -1039,11 +1066,11 @@ export const TodoBoard: React.FC = () => {
             dataSource={dataSource}
             configMap={{
               card: {
-                render: ({ data }) => <TodoCard data={data} onOpen={handleEditTodo} onDelete={(todo) => canWrite && setDeletingTodo(todo)} />,
-                isDraggable: canWrite,
+                render: ({ data }) => <TodoCard data={data} onOpen={handleEditTodo} onArchiveToggle={handleArchiveToggle} onDelete={(todo) => canWrite && setDeletingTodo(todo)} />,
+                isDraggable: canManageBoard,
               },
             }}
-            allowColumnDrag={canWrite}
+            allowColumnDrag={canManageBoard}
             onColumnMove={handleColumnMove}
             columnClassName={() => 'todo-board-column'}
             renderColumnHeader={(column) => {
@@ -1051,12 +1078,12 @@ export const TodoBoard: React.FC = () => {
               return (
                 <div className="todo-column-header">
                   <div className="todo-column-header-left">
-                      {canWrite && <GripVertical size={14} className="todo-column-grip" />}
+                      {canManageBoard && <GripVertical size={14} className="todo-column-grip" />}
                     <div className="todo-column-dot" style={{ backgroundColor: color }} />
                     <span className="todo-column-name">{column.title}</span>
                     <span className="todo-column-count">{column.totalItemsCount || 0}</span>
                   </div>
-                  {canWrite && <button className="todo-column-delete" onClick={() => handleDeleteColumn(column.id)} title="Delete column"><Trash2 size={14} /></button>}
+                  {canManageBoard && <button className="todo-column-delete" onClick={() => handleDeleteColumn(column.id)} title="Delete column"><Trash2 size={14} /></button>}
                 </div>
               );
             }}
@@ -1067,15 +1094,15 @@ export const TodoBoard: React.FC = () => {
               addingCardForColumn === column.id ? (
                 <AddCardForm statusId={column.id} onAdd={handleAddCard} onCancel={() => setAddingCardForColumn(null)} />
               ) : (
-                canWrite ? <button className="todo-add-card-btn" onClick={() => setAddingCardForColumn(column.id)}><Plus size={16} /> Add card</button> : null
+                canManageBoard ? <button className="todo-add-card-btn" onClick={() => setAddingCardForColumn(column.id)}><Plus size={16} /> Add card</button> : null
               )
             }
-            allowListFooter={() => canWrite}
+            allowListFooter={() => canManageBoard}
           />
         ) : (
           <div className="todo-board-empty">
             <AlertCircle size={48} /><h3>No columns yet</h3><p>Create your first column to start organizing tasks</p>
-            {canWrite && <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Create Column</button>}
+            {canManageBoard && <button className="btn-primary" onClick={() => setShowAddColumn(true)}><Plus size={16} /> Create Column</button>}
           </div>
         )}
       </div>
@@ -1296,11 +1323,13 @@ export const TodoBoard: React.FC = () => {
                 <div className="todo-detail-meta-grid">
                   <div className="todo-detail-meta-card"><span>Created</span><strong>{new Date(editingTodo.createdAt).toLocaleString()}</strong></div>
                   <div className="todo-detail-meta-card"><span>Updated</span><strong>{new Date(editingTodo.updatedAt).toLocaleString()}</strong></div>
+                  {editingTodo.archivedAt && <div className="todo-detail-meta-card"><span>Archived</span><strong>{new Date(editingTodo.archivedAt).toLocaleString()}</strong></div>}
                 </div>
               </section>
             </div>
 
             <div className="todo-detail-footer">
+              {canWrite && <button className="btn-ghost" onClick={() => handleArchiveToggle(editingTodo)} disabled={isSavingEdit}>{editingTodo.archivedAt ? <RotateCcw size={16} /> : <Archive size={16} />} {editingTodo.archivedAt ? 'Restore' : 'Archive'}</button>}
               {canWrite && <button className="btn-danger" onClick={() => setDeletingTodo(editingTodo)} disabled={isSavingEdit}><Trash2 size={16} /> Delete</button>}
               <div className="todo-detail-footer-actions">
                 <button className="btn-ghost" onClick={() => setEditingTodo(null)} disabled={isSavingEdit}>Cancel</button>
