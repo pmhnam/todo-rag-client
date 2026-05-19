@@ -111,6 +111,11 @@ export const Login: React.FC = () => {
 
         <div className="auth-footer">
           <p>
+            <Link to="/forgot-password" className="auth-link">
+              Forgot password?
+            </Link>
+          </p>
+          <p>
             Don't have an account?{' '}
             <Link to="/register" className="auth-link">
               Create one

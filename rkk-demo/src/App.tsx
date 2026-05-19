@@ -7,6 +7,9 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import {
   Login,
   Register,
+  ForgotPassword,
+  ResetPassword,
+  VerifyEmail,
   Dashboard,
   TodoBoard,
   AiChat,
@@ -21,8 +24,11 @@ function App() {
           <ToastProvider>
             <Routes>
               {/* Auth pages (no layout) */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
 
               {/* Main layout pages */}
               <Route element={<Layout />}>

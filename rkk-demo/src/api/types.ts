@@ -51,6 +51,36 @@ export interface RefreshReq {
 
 export type RefreshRes = Omit<LoginRes, 'userId'>;
 
+export interface ForgotPasswordReq {
+  email: string;
+}
+
+export interface ResendVerifyEmailReq {
+  email: string;
+}
+
+export interface VerifyForgotPasswordReq {
+  token: string;
+}
+
+export interface ResetPasswordReq {
+  token: string;
+  password: string;
+}
+
+export interface ChangePasswordReq {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface SuccessRes {
+  success: true;
+}
+
+export interface VerifyResetRes {
+  valid: true;
+}
+
 // ─── User ──────────────────────────────────────────────
 
 export interface User {
@@ -60,6 +90,7 @@ export interface User {
   name: string;
   bio?: string;
   image: string;
+  emailVerifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -106,6 +137,32 @@ export interface CreateProjectReq {
 export interface UpdateProjectReq {
   name?: string;
   description?: string;
+}
+
+export interface UpdateMeReq {
+  name: string;
+  bio?: string;
+}
+
+export interface PresignAvatarReq {
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface PresignAvatarRes {
+  key: string;
+  uploadUrl: string;
+  publicUrl: string;
+  headers: Record<string, string>;
+}
+
+export interface CompleteAvatarReq {
+  key: string;
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
 }
 
 // ─── TodoStatus ────────────────────────────────────────

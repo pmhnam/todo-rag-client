@@ -63,6 +63,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUser = async () => {
+    const userData = await userApi.me();
+    setUser(userData);
+  };
+
+  const setCurrentUser = (nextUser: User) => {
+    setUser(nextUser);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -71,6 +80,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
+        refreshUser,
+        setCurrentUser,
         logout,
       }}
     >

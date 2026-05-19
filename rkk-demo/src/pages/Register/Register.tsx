@@ -32,7 +32,7 @@ export const Register: React.FC = () => {
     setIsSubmitting(true);
     try {
       await register(name.trim(), email, password);
-      showToast('Account created! Please sign in.', 'success');
+      showToast('Account created! Check your email to verify your account.', 'success');
       navigate('/login', { replace: true });
     } catch (err: unknown) {
       const message =
