@@ -1,5 +1,4 @@
 import apiClient from './apiClient';
-import axios from 'axios';
 import type {
   Todo,
   TodoStatus,
@@ -99,8 +98,18 @@ export const todoAttachmentApi = {
       .post<PresignTodoAttachmentRes>(`/todos/${todoId}/attachments/presign`, data)
       .then((r) => r.data),
 
-  uploadToStorage: (uploadUrl: string, file: File, headers: Record<string, string>) =>
-    axios.put(uploadUrl, file, { headers }),
+  uploadToStorage: async (uploadUrl: string, file: File, headers: Record<string, string>) => {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers,
+      body: file,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`R2 upload failed (${response.status}): ${errorText}`);
+    }
+  },
 
   complete: (todoId: string, data: CompleteTodoAttachmentReq) =>
     apiClient
