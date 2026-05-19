@@ -8,6 +8,7 @@ import {
   Login,
   Register,
   ForgotPassword,
+  Invite,
   ResetPassword,
   VerifyEmail,
   Dashboard,
@@ -27,6 +28,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/invite" element={<Invite />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
 

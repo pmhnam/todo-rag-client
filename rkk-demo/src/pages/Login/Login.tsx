@@ -26,6 +26,11 @@ export const Login: React.FC = () => {
     try {
       await login(email, password);
       showToast('Welcome back!', 'success');
+      const pendingInviteToken = localStorage.getItem('pendingInviteToken');
+      if (pendingInviteToken) {
+        navigate(`/invite?token=${pendingInviteToken}`, { replace: true });
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const message =

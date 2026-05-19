@@ -1,10 +1,14 @@
 import apiClient from './apiClient';
 import type {
   CreateProjectReq,
+  CreateProjectInvitationReq,
+  AcceptProjectInvitationRes,
   InviteProjectMemberReq,
   PaginatedRes,
   PageParams,
   Project,
+  ProjectInvitation,
+  ProjectInvitationPreview,
   ProjectMember,
   UpdateProjectMemberReq,
   UpdateProjectReq,
@@ -38,4 +42,25 @@ export const projectApi = {
 
   removeMember: (id: string, memberId: string) =>
     apiClient.delete(`/projects/${id}/members/${memberId}`),
+
+  getInvitations: (id: string) =>
+    apiClient.get<ProjectInvitation[]>(`/projects/${id}/invitations`).then((r) => r.data),
+
+  createInvitation: (id: string, data: CreateProjectInvitationReq) =>
+    apiClient.post<ProjectInvitation>(`/projects/${id}/invitations`, data).then((r) => r.data),
+
+  revokeInvitation: (id: string, invitationId: string) =>
+    apiClient.delete(`/projects/${id}/invitations/${invitationId}`),
+};
+
+export const projectInvitationApi = {
+  preview: (token: string) =>
+    apiClient
+      .get<ProjectInvitationPreview>('/project-invitations/preview', { params: { token } })
+      .then((r) => r.data),
+
+  accept: (token: string) =>
+    apiClient
+      .post<AcceptProjectInvitationRes>('/project-invitations/accept', { token })
+      .then((r) => r.data),
 };

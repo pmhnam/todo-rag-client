@@ -8,7 +8,7 @@ import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { Spinner } from '../../components/Spinner';
 import { JiraAuthType } from '../../api/types';
-import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectMember, ProjectMemberPermission, TodoAttachment } from '../../api/types';
+import type { Todo, TodoStatus, CreateTodoReq, TodoPriority, JiraSyncStatus, TodoComment, TodoActivity, ProjectInvitation, ProjectMember, ProjectMemberPermission, TodoAttachment } from '../../api/types';
 import { useProjects } from '../../contexts/useProjects';
 import {
   Plus, Trash2, Calendar, Flag, GripVertical, X, Edit3, AlertCircle, Sparkles, Link2, Settings, Search, SlidersHorizontal, MessageSquare, Send, Check, History, Users, Paperclip, Upload, Archive, RotateCcw
@@ -335,6 +335,7 @@ export const TodoBoard: React.FC = () => {
   const [jiraMappings, setJiraMappings] = useState<Record<string, { jiraTransitionId: string; jiraTransitionName: string }>>({});
   const [showShare, setShowShare] = useState(false);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<ProjectInvitation[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitePermission, setInvitePermission] = useState<ProjectMemberPermission>('READ');
@@ -566,25 +567,52 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
+  const loadInvitations = async (projectId: string) => {
+    try {
+      setPendingInvitations(await projectApi.getInvitations(projectId));
+    } catch {
+      showToast('Failed to load pending invitations', 'error');
+    }
+  };
+
   const handleOpenShare = async () => {
     if (!selectedProjectId) return;
     setShowShare(true);
-    await loadMembers(selectedProjectId);
+    setMembersLoading(true);
+    try {
+      await Promise.all([loadMembers(selectedProjectId), loadInvitations(selectedProjectId)]);
+    } finally {
+      setMembersLoading(false);
+    }
   };
 
   const handleInviteMember = async () => {
     if (!selectedProjectId || !inviteEmail.trim()) return;
     setMembersLoading(true);
     try {
-      await projectApi.inviteMember(selectedProjectId, {
+      await projectApi.createInvitation(selectedProjectId, {
         email: inviteEmail.trim(),
         permission: invitePermission,
       });
       setInviteEmail('');
-      await loadMembers(selectedProjectId);
-      showToast('Collaborator invited', 'success');
+      await loadInvitations(selectedProjectId);
+      showToast('Invitation email sent', 'success');
     } catch {
-      showToast('Failed to invite collaborator', 'error');
+      showToast('Failed to send invitation', 'error');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: string) => {
+    if (!selectedProjectId) return;
+    setMembersLoading(true);
+    try {
+      await projectApi.revokeInvitation(selectedProjectId, invitationId);
+      setPendingInvitations((current) => current.filter((invitation) => invitation.id !== invitationId));
+      showToast('Invitation revoked', 'success');
+    } catch {
+      showToast('Failed to revoke invitation', 'error');
     } finally {
       setMembersLoading(false);
     }
@@ -1401,6 +1429,22 @@ export const TodoBoard: React.FC = () => {
                         <option value="WRITE_INVITE">Write and invite</option>
                       </select>
                       <button className="btn-ghost" onClick={() => handleRemoveMember(member.id)} disabled={membersLoading}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="todo-jira-section">
+            <h4>Pending invitations</h4>
+            {membersLoading ? <div className="todo-comments-empty"><Spinner size="sm" /> Loading invitations...</div> : pendingInvitations.length === 0 ? <p>No pending invitations.</p> : (
+              <div className="todo-comment-list">
+                {pendingInvitations.map((invitation) => (
+                  <div className="todo-comment" key={invitation.id}>
+                    <div className="todo-comment-meta"><span>{invitation.email}</span><time>Expires {new Date(invitation.expiresAt).toLocaleDateString()}</time></div>
+                    <div className="todo-comment-actions">
+                      <span>{invitation.permission}</span>
+                      <button className="btn-ghost" onClick={() => handleRevokeInvitation(invitation.id)} disabled={membersLoading}>Revoke</button>
                     </div>
                   </div>
                 ))}

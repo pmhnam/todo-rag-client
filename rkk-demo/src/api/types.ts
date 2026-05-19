@@ -108,6 +108,7 @@ export interface Project {
 }
 
 export type ProjectMemberPermission = 'READ' | 'WRITE' | 'WRITE_INVITE';
+export type ProjectInvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
 
 export interface ProjectMember {
   id: string;
@@ -123,6 +124,35 @@ export interface InviteProjectMemberReq {
   userId?: string;
   email?: string;
   permission: ProjectMemberPermission;
+}
+
+export interface CreateProjectInvitationReq {
+  email: string;
+  permission: ProjectMemberPermission;
+}
+
+export interface ProjectInvitation {
+  id: string;
+  projectId: string;
+  email: string;
+  permission: ProjectMemberPermission;
+  status: ProjectInvitationStatus;
+  invitedBy: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ProjectInvitationPreview {
+  projectName: string;
+  email: string;
+  permission: ProjectMemberPermission;
+  status: ProjectInvitationStatus;
+  expiresAt: string;
+}
+
+export interface AcceptProjectInvitationRes {
+  projectId: string;
+  member: ProjectMember;
 }
 
 export interface UpdateProjectMemberReq {
