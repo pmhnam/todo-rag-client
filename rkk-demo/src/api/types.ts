@@ -1,23 +1,24 @@
 // ─── Enums ─────────────────────────────────────────────
 
 export const TodoPriority = {
-  LOW: 'LOW',
-  MEDIUM: 'MEDIUM',
-  HIGH: 'HIGH',
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
 } as const;
 export type TodoPriority = (typeof TodoPriority)[keyof typeof TodoPriority];
 
 export const JiraSyncStatus = {
-  NOT_LINKED: 'NOT_LINKED',
-  SYNCED: 'SYNCED',
-  PENDING: 'PENDING',
-  FAILED: 'FAILED',
+  NOT_LINKED: "NOT_LINKED",
+  SYNCED: "SYNCED",
+  PENDING: "PENDING",
+  FAILED: "FAILED",
 } as const;
-export type JiraSyncStatus = (typeof JiraSyncStatus)[keyof typeof JiraSyncStatus];
+export type JiraSyncStatus =
+  (typeof JiraSyncStatus)[keyof typeof JiraSyncStatus];
 
 export const JiraAuthType = {
-  BASIC: 'BASIC',
-  BEARER: 'BEARER',
+  BASIC: "BASIC",
+  BEARER: "BEARER",
 } as const;
 export type JiraAuthType = (typeof JiraAuthType)[keyof typeof JiraAuthType];
 
@@ -49,7 +50,7 @@ export interface RefreshReq {
   refreshToken: string;
 }
 
-export type RefreshRes = Omit<LoginRes, 'userId'>;
+export type RefreshRes = Omit<LoginRes, "userId">;
 
 export interface ForgotPasswordReq {
   email: string;
@@ -107,8 +108,12 @@ export interface Project {
   updatedAt: string;
 }
 
-export type ProjectMemberPermission = 'READ' | 'WRITE' | 'WRITE_INVITE';
-export type ProjectInvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+export type ProjectMemberPermission = "READ" | "WRITE" | "WRITE_INVITE";
+export type ProjectInvitationStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REVOKED"
+  | "EXPIRED";
 
 export interface ProjectMember {
   id: string;
@@ -248,7 +253,7 @@ export interface Todo {
   archivedBy?: string;
 }
 
-export type TodoAttachmentKind = 'IMAGE' | 'VIDEO';
+export type TodoAttachmentKind = "IMAGE" | "VIDEO";
 
 export interface TodoAttachment {
   id: string;
@@ -300,6 +305,13 @@ export interface TodoComment {
   id: string;
   todoId: string;
   userId: string;
+  user?: {
+    id: string;
+    username: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
   content: string;
   createdBy: string;
   createdAt: string;
@@ -339,25 +351,32 @@ export interface CompleteTodoAttachmentReq {
 }
 
 export type TodoActivityType =
-  | 'TASK_CREATED'
-  | 'TASK_UPDATED'
-  | 'TASK_MOVED'
-  | 'TASK_DELETED'
-  | 'TASK_ARCHIVED'
-  | 'TASK_UNARCHIVED'
-  | 'JIRA_LINKED'
-  | 'JIRA_UNLINKED'
-  | 'JIRA_SYNCED'
-  | 'JIRA_SYNC_PENDING'
-  | 'JIRA_SYNC_FAILED'
-  | 'COMMENT_ADDED'
-  | 'COMMENT_UPDATED'
-  | 'COMMENT_DELETED';
+  | "TASK_CREATED"
+  | "TASK_UPDATED"
+  | "TASK_MOVED"
+  | "TASK_DELETED"
+  | "TASK_ARCHIVED"
+  | "TASK_UNARCHIVED"
+  | "JIRA_LINKED"
+  | "JIRA_UNLINKED"
+  | "JIRA_SYNCED"
+  | "JIRA_SYNC_PENDING"
+  | "JIRA_SYNC_FAILED"
+  | "COMMENT_ADDED"
+  | "COMMENT_UPDATED"
+  | "COMMENT_DELETED";
 
 export interface TodoActivity {
   id: string;
   todoId: string;
   userId: string;
+  user?: {
+    id: string;
+    username: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
   type: TodoActivityType;
   message: string;
   metadata?: {
@@ -469,7 +488,7 @@ export interface Conversation {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   createdAt: string;
 }
