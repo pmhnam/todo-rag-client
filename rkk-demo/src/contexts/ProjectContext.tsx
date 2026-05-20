@@ -1,13 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { projectApi } from '../api/projectApi';
-import type { Project } from '../api/types';
+import { workspaceApi } from '../api/workspaceApi';
+import type { Project, Workspace } from '../api/types';
 import { useAuth } from './useAuth';
 import { ProjectContext, type BoardCacheEntry } from './projectContext';
 
 const DEFAULT_PROJECT_NAME = 'My First Board';
+const DEFAULT_WORKSPACE_NAME = 'My Workspace';
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,39 +23,74 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     boardCacheRef.current = boardCacheByProjectId;
   }, [boardCacheByProjectId]);
 
-  const createDefaultProject = useCallback(async () => {
-    const project = await projectApi.create({ name: DEFAULT_PROJECT_NAME });
-    setProjects([project]);
-    setSelectedProjectId(project.id);
-    return project;
+  const createDefaultWorkspace = useCallback(async () => {
+    const workspace = await workspaceApi.create({ name: DEFAULT_WORKSPACE_NAME });
+    setWorkspaces([workspace]);
+    setSelectedWorkspaceId(workspace.id);
+    return workspace;
+  }, []);
+
+  const loadProjectsForWorkspace = useCallback(async (workspaceId: string) => {
+    const res = await projectApi.getAll({ page: 1, limit: 100, workspaceId });
+    setProjects(res.data || []);
+    setSelectedProjectId((current) => current && res.data.some((project) => project.id === current) ? current : res.data[0]?.id || null);
+    return res.data || [];
   }, []);
 
   const refreshProjects = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!selectedWorkspaceId) {
       setProjects([]);
+      setSelectedProjectId(null);
+      return;
+    }
+    await loadProjectsForWorkspace(selectedWorkspaceId);
+  }, [loadProjectsForWorkspace, selectedWorkspaceId]);
+
+  const refreshWorkspaces = useCallback(async () => {
+    if (!isAuthenticated) {
+      setWorkspaces([]);
+      setProjects([]);
+      setSelectedWorkspaceId(null);
       setSelectedProjectId(null);
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await projectApi.getAll({ page: 1, limit: 100 });
-      if (res.data && res.data.length > 0) {
-        setProjects(res.data);
-        setSelectedProjectId((current) => current && res.data.some((project) => project.id === current) ? current : res.data[0].id);
-      } else {
-        await createDefaultProject();
+      const workspaceRes = await workspaceApi.getAll({ page: 1, limit: 100 });
+      const nextWorkspaces = workspaceRes.data?.length ? workspaceRes.data : [await createDefaultWorkspace()];
+      setWorkspaces(nextWorkspaces);
+      const nextWorkspaceId = selectedWorkspaceId && nextWorkspaces.some((workspace) => workspace.id === selectedWorkspaceId)
+        ? selectedWorkspaceId
+        : nextWorkspaces[0].id;
+      setSelectedWorkspaceId(nextWorkspaceId);
+      const nextProjects = await loadProjectsForWorkspace(nextWorkspaceId);
+      if (nextProjects.length === 0) {
+        const project = await projectApi.create({ name: DEFAULT_PROJECT_NAME, workspaceId: nextWorkspaceId });
+        setProjects([project]);
+        setSelectedProjectId(project.id);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [createDefaultProject, isAuthenticated]);
+  }, [createDefaultWorkspace, isAuthenticated, loadProjectsForWorkspace, selectedWorkspaceId]);
 
   useEffect(() => {
-    refreshProjects().catch(() => {
+    refreshWorkspaces().catch(() => {
       setIsLoading(false);
     });
-  }, [refreshProjects]);
+  }, [refreshWorkspaces]);
+
+  useEffect(() => {
+    if (selectedWorkspaceId && isAuthenticated) {
+      loadProjectsForWorkspace(selectedWorkspaceId).catch(() => undefined);
+    }
+  }, [isAuthenticated, loadProjectsForWorkspace, selectedWorkspaceId]);
+
+  const selectWorkspace = useCallback((workspaceId: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    setSelectedProjectId(null);
+  }, []);
 
   const selectProject = useCallback((projectId: string) => {
     setSelectedProjectId(projectId);
@@ -66,16 +105,59 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const createProject = useCallback(async (name: string) => {
+    if (!selectedWorkspaceId) throw new Error('No workspace selected');
     setIsSaving(true);
     try {
-      const project = await projectApi.create({ name });
+      const project = await projectApi.create({ name, workspaceId: selectedWorkspaceId });
       setProjects((current) => [...current, project]);
       setSelectedProjectId(project.id);
       return project;
     } finally {
       setIsSaving(false);
     }
+  }, [selectedWorkspaceId]);
+
+  const createWorkspace = useCallback(async (name: string) => {
+    setIsSaving(true);
+    try {
+      const workspace = await workspaceApi.create({ name });
+      const project = await projectApi.create({ name: DEFAULT_PROJECT_NAME, workspaceId: workspace.id });
+      setWorkspaces((current) => [...current, workspace]);
+      setSelectedWorkspaceId(workspace.id);
+      setProjects([project]);
+      setSelectedProjectId(project.id);
+      return workspace;
+    } finally {
+      setIsSaving(false);
+    }
   }, []);
+
+  const renameWorkspace = useCallback(async (workspaceId: string, name: string) => {
+    setIsSaving(true);
+    try {
+      const workspace = await workspaceApi.update(workspaceId, { name });
+      setWorkspaces((current) => current.map((item) => item.id === workspace.id ? workspace : item));
+      return workspace;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  const deleteWorkspace = useCallback(async (workspaceId: string) => {
+    setIsSaving(true);
+    try {
+      await workspaceApi.delete(workspaceId);
+      const remaining = workspaces.filter((workspace) => workspace.id !== workspaceId);
+      if (remaining.length > 0) {
+        setWorkspaces(remaining);
+        setSelectedWorkspaceId(remaining[0].id);
+        return remaining[0];
+      }
+      return await createDefaultWorkspace();
+    } finally {
+      setIsSaving(false);
+    }
+  }, [createDefaultWorkspace, workspaces]);
 
   const renameProject = useCallback(async (projectId: string, name: string) => {
     setIsSaving(true);
@@ -104,26 +186,43 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedProjectId(nextProject.id);
         return nextProject;
       }
-      return await createDefaultProject();
+      if (!selectedWorkspaceId) throw new Error('No workspace selected');
+      const project = await projectApi.create({ name: DEFAULT_PROJECT_NAME, workspaceId: selectedWorkspaceId });
+      setProjects([project]);
+      setSelectedProjectId(project.id);
+      return project;
     } finally {
       setIsSaving(false);
     }
-  }, [createDefaultProject, projects]);
+  }, [projects, selectedWorkspaceId]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) || null,
     [projects, selectedProjectId],
   );
 
+  const selectedWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) || null,
+    [selectedWorkspaceId, workspaces],
+  );
+
   return (
     <ProjectContext.Provider
       value={{
         projects,
+        workspaces,
+        selectedWorkspaceId,
+        selectedWorkspace,
         selectedProjectId,
         selectedProject,
         isLoading,
         isSaving,
         refreshProjects,
+        refreshWorkspaces,
+        selectWorkspace,
+        createWorkspace,
+        renameWorkspace,
+        deleteWorkspace,
         selectProject,
         createProject,
         renameProject,

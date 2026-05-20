@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { Project, Todo, TodoStatus } from '../api/types';
+import type { Project, Todo, TodoStatus, Workspace } from '../api/types';
 
 export interface BoardCacheEntry {
   statuses: TodoStatus[];
@@ -8,11 +8,19 @@ export interface BoardCacheEntry {
 
 export interface ProjectContextType {
   projects: Project[];
+  workspaces: Workspace[];
+  selectedWorkspaceId: string | null;
+  selectedWorkspace: Workspace | null;
   selectedProjectId: string | null;
   selectedProject: Project | null;
   isLoading: boolean;
   isSaving: boolean;
   refreshProjects: () => Promise<void>;
+  refreshWorkspaces: () => Promise<void>;
+  selectWorkspace: (workspaceId: string) => void;
+  createWorkspace: (name: string) => Promise<Workspace>;
+  renameWorkspace: (workspaceId: string, name: string) => Promise<Workspace>;
+  deleteWorkspace: (workspaceId: string) => Promise<Workspace>;
   selectProject: (projectId: string) => void;
   createProject: (name: string) => Promise<Project>;
   renameProject: (projectId: string, name: string) => Promise<Project>;

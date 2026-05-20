@@ -7,7 +7,7 @@ import { Modal } from "../Modal";
 import { useToast } from "../Toast";
 import { useProjects } from "../../contexts/useProjects";
 import { useAuth } from "../../contexts/useAuth";
-import type { Project } from "../../api/types";
+import type { Project, Workspace } from "../../api/types";
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -16,20 +16,32 @@ export const Sidebar: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const {
     projects,
+    workspaces,
+    selectedWorkspaceId,
     selectedProjectId,
     isLoading,
     isSaving,
+    selectWorkspace,
+    createWorkspace,
+    renameWorkspace,
+    deleteWorkspace,
     selectProject,
     createProject,
     renameProject,
     deleteProject,
   } = useProjects();
   const [projectName, setProjectName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [renamingWorkspace, setRenamingWorkspace] = useState<Workspace | null>(null);
+  const [deletingWorkspace, setDeletingWorkspace] = useState<Workspace | null>(null);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [renamingProject, setRenamingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const openProjectMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId) || null;
 
   useEffect(() => {
     if (!openProjectMenuId) return;
@@ -64,6 +76,50 @@ export const Sidebar: React.FC = () => {
       showToast("Project created", "success");
     } catch {
       showToast("Failed to create project", "error");
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    const name = workspaceName.trim();
+    if (!name) {
+      showToast("Workspace name is required", "error");
+      return;
+    }
+    try {
+      await createWorkspace(name);
+      setWorkspaceName("");
+      setShowCreateWorkspace(false);
+      showToast("Workspace created", "success");
+    } catch {
+      showToast("Failed to create workspace", "error");
+    }
+  };
+
+  const handleRenameWorkspace = async () => {
+    if (!renamingWorkspace) return;
+    const name = workspaceName.trim();
+    if (!name) {
+      showToast("Workspace name is required", "error");
+      return;
+    }
+    try {
+      await renameWorkspace(renamingWorkspace.id, name);
+      setRenamingWorkspace(null);
+      setWorkspaceName("");
+      showToast("Workspace renamed", "success");
+    } catch {
+      showToast("Failed to rename workspace", "error");
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!deletingWorkspace) return;
+    try {
+      await deleteWorkspace(deletingWorkspace.id);
+      setDeletingWorkspace(null);
+      showToast("Workspace deleted", "success");
+    } catch {
+      showToast("Failed to delete workspace", "error");
     }
   };
 
@@ -122,11 +178,27 @@ export const Sidebar: React.FC = () => {
         {isAuthenticated && (
           <div className="rkk-demo-sidebar-section rkk-demo-projects-section">
             <div className="rkk-demo-projects-header">
+              <h3 className="rkk-demo-sidebar-title">Workspaces</h3>
+              <button className="rkk-demo-project-add" onClick={() => { setWorkspaceName(""); setShowCreateWorkspace(true); }} title="New workspace"><Plus size={16} /></button>
+            </div>
+            <div className="auth-field" style={{ marginBottom: 12 }}>
+              <select value={selectedWorkspaceId || ""} onChange={(event) => selectWorkspace(event.target.value)} disabled={isLoading || workspaces.length === 0}>
+                {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+              </select>
+            </div>
+            {selectedWorkspace?.isOwner && (
+              <div className="todo-comment-actions" style={{ marginBottom: 12 }}>
+                <button className="btn-ghost" onClick={() => { setWorkspaceName(selectedWorkspace.name); setRenamingWorkspace(selectedWorkspace); }}><Edit3 size={14} /> Rename</button>
+                <button className="btn-ghost" onClick={() => setDeletingWorkspace(selectedWorkspace)}><Trash2 size={14} /> Delete</button>
+              </div>
+            )}
+            <div className="rkk-demo-projects-header">
               <h3 className="rkk-demo-sidebar-title">Projects</h3>
               <button
                 className="rkk-demo-project-add"
                 onClick={() => { setProjectName(""); setShowCreateProject(true); }}
                 title="New project"
+                disabled={!selectedWorkspaceId}
               >
                 <Plus size={16} />
               </button>
@@ -168,6 +240,24 @@ export const Sidebar: React.FC = () => {
           </div>
         )}
       </div>
+
+      <Modal isOpen={showCreateWorkspace} onClose={() => setShowCreateWorkspace(false)} title="Create Workspace" size="sm"
+        footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setShowCreateWorkspace(false)}>Cancel</button><button className="btn-primary" onClick={handleCreateWorkspace} disabled={isSaving}>{isSaving ? "Creating..." : "Create"}</button></div>}
+      >
+        <div className="todo-edit-form"><div className="auth-field"><label>Workspace Name</label><input type="text" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleCreateWorkspace(); }} placeholder="Workspace name" autoFocus /></div></div>
+      </Modal>
+
+      <Modal isOpen={!!renamingWorkspace} onClose={() => setRenamingWorkspace(null)} title="Rename Workspace" size="sm"
+        footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setRenamingWorkspace(null)}>Cancel</button><button className="btn-primary" onClick={handleRenameWorkspace} disabled={isSaving}>{isSaving ? "Saving..." : "Save Changes"}</button></div>}
+      >
+        <div className="todo-edit-form"><div className="auth-field"><label>Workspace Name</label><input type="text" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleRenameWorkspace(); }} placeholder="Workspace name" autoFocus /></div></div>
+      </Modal>
+
+      <Modal isOpen={!!deletingWorkspace} onClose={() => setDeletingWorkspace(null)} title="Delete Workspace" size="sm"
+        footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setDeletingWorkspace(null)}>Cancel</button><button className="btn-danger" onClick={handleDeleteWorkspace} disabled={isSaving}>{isSaving ? "Deleting..." : "Delete"}</button></div>}
+      >
+        <p>Are you sure you want to delete <strong>"{deletingWorkspace?.name}"</strong>? Only the workspace owner can do this.</p>
+      </Modal>
 
       <Modal isOpen={showCreateProject} onClose={() => setShowCreateProject(false)} title="Create Project" size="sm"
         footer={<div className="todo-modal-footer"><button className="btn-ghost" onClick={() => setShowCreateProject(false)}>Cancel</button><button className="btn-primary" onClick={handleCreateProject} disabled={isSaving}>{isSaving ? "Creating..." : "Create"}</button></div>}

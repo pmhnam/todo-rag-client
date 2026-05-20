@@ -15,7 +15,7 @@ import {
   todoStatusApi,
 } from "../../api/todoApi";
 import { jiraIntegrationApi } from "../../api/jiraIntegrationApi";
-import { projectApi } from "../../api/projectApi";
+import { workspaceApi } from "../../api/workspaceApi";
 import { useToast } from "../../components/Toast";
 import { Modal } from "../../components/Modal";
 import { Spinner } from "../../components/Spinner";
@@ -28,10 +28,10 @@ import type {
   JiraSyncStatus,
   TodoComment,
   TodoActivity,
-  ProjectInvitation,
-  ProjectMember,
   ProjectMemberPermission,
   TodoAttachment,
+  WorkspaceInvitation,
+  WorkspaceMember,
 } from "../../api/types";
 import { useProjects } from "../../contexts/useProjects";
 import {
@@ -500,6 +500,8 @@ export const TodoBoard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     projects,
+    selectedWorkspaceId,
+    selectedWorkspace,
     selectedProjectId,
     selectedProject,
     isLoading: isProjectLoading,
@@ -572,9 +574,9 @@ export const TodoBoard: React.FC = () => {
     Record<string, { jiraTransitionId: string; jiraTransitionName: string }>
   >({});
   const [showShare, setShowShare] = useState(false);
-  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<
-    ProjectInvitation[]
+    WorkspaceInvitation[]
   >([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -874,33 +876,33 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
-  const loadMembers = async (projectId: string) => {
+  const loadMembers = async (workspaceId: string) => {
     setMembersLoading(true);
     try {
-      setMembers(await projectApi.getMembers(projectId));
+      setMembers(await workspaceApi.getMembers(workspaceId));
     } catch {
-      showToast("Failed to load collaborators", "error");
+      showToast("Failed to load workspace members", "error");
     } finally {
       setMembersLoading(false);
     }
   };
 
-  const loadInvitations = async (projectId: string) => {
+  const loadInvitations = async (workspaceId: string) => {
     try {
-      setPendingInvitations(await projectApi.getInvitations(projectId));
+      setPendingInvitations(await workspaceApi.getInvitations(workspaceId));
     } catch {
       showToast("Failed to load pending invitations", "error");
     }
   };
 
   const handleOpenShare = async () => {
-    if (!selectedProjectId) return;
+    if (!selectedWorkspaceId) return;
     setShowShare(true);
     setMembersLoading(true);
     try {
       await Promise.all([
-        loadMembers(selectedProjectId),
-        loadInvitations(selectedProjectId),
+        loadMembers(selectedWorkspaceId),
+        loadInvitations(selectedWorkspaceId),
       ]);
     } finally {
       setMembersLoading(false);
@@ -908,15 +910,15 @@ export const TodoBoard: React.FC = () => {
   };
 
   const handleInviteMember = async () => {
-    if (!selectedProjectId || !inviteEmail.trim()) return;
+    if (!selectedWorkspaceId || !inviteEmail.trim()) return;
     setMembersLoading(true);
     try {
-      await projectApi.createInvitation(selectedProjectId, {
+      await workspaceApi.createInvitation(selectedWorkspaceId, {
         email: inviteEmail.trim(),
         permission: invitePermission,
       });
       setInviteEmail("");
-      await loadInvitations(selectedProjectId);
+      await loadInvitations(selectedWorkspaceId);
       showToast("Invitation email sent", "success");
     } catch {
       showToast("Failed to send invitation", "error");
@@ -926,10 +928,10 @@ export const TodoBoard: React.FC = () => {
   };
 
   const handleRevokeInvitation = async (invitationId: string) => {
-    if (!selectedProjectId) return;
+    if (!selectedWorkspaceId) return;
     setMembersLoading(true);
     try {
-      await projectApi.revokeInvitation(selectedProjectId, invitationId);
+      await workspaceApi.revokeInvitation(selectedWorkspaceId, invitationId);
       setPendingInvitations((current) =>
         current.filter((invitation) => invitation.id !== invitationId),
       );
@@ -945,30 +947,30 @@ export const TodoBoard: React.FC = () => {
     memberId: string,
     permission: ProjectMemberPermission,
   ) => {
-    if (!selectedProjectId) return;
+    if (!selectedWorkspaceId) return;
     try {
-      const updated = await projectApi.updateMember(
-        selectedProjectId,
+      const updated = await workspaceApi.updateMember(
+        selectedWorkspaceId,
         memberId,
-        { permission },
+        permission,
       );
       setMembers((current) =>
         current.map((member) => (member.id === memberId ? updated : member)),
       );
     } catch {
-      showToast("Failed to update collaborator", "error");
+      showToast("Failed to update workspace member", "error");
     }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!selectedProjectId) return;
+    if (!selectedWorkspaceId) return;
     try {
-      await projectApi.removeMember(selectedProjectId, memberId);
+      await workspaceApi.removeMember(selectedWorkspaceId, memberId);
       setMembers((current) =>
         current.filter((member) => member.id !== memberId),
       );
     } catch {
-      showToast("Failed to remove collaborator", "error");
+      showToast("Failed to remove workspace member", "error");
     }
   };
 
@@ -1458,7 +1460,7 @@ export const TodoBoard: React.FC = () => {
     selectedProject?.permission === "WRITE" ||
     selectedProject?.permission === "WRITE_INVITE";
   const canManageBoard = canWrite && !filterArchived;
-  const canInvite = selectedProject?.permission === "WRITE_INVITE";
+  const canInvite = selectedWorkspace?.permission === "WRITE_INVITE";
   const renderAttachments = (
     attachments: TodoAttachment[] = [],
     compact = false,
@@ -2549,12 +2551,12 @@ export const TodoBoard: React.FC = () => {
       <Modal
         isOpen={showShare}
         onClose={() => setShowShare(false)}
-        title="Share Board"
+        title="Share Workspace"
         size="lg"
       >
         <div className="todo-jira-settings">
           <div className="todo-jira-section">
-            <h4>Invite collaborator</h4>
+            <h4>Invite workspace member</h4>
             <div className="todo-edit-row">
               <div className="auth-field">
                 <label>Email</label>
@@ -2584,19 +2586,19 @@ export const TodoBoard: React.FC = () => {
             <button
               className="btn-primary"
               onClick={handleInviteMember}
-              disabled={membersLoading || !inviteEmail.trim()}
+              disabled={membersLoading || !selectedWorkspaceId || !inviteEmail.trim()}
             >
               <Users size={16} /> Invite
             </button>
           </div>
           <div className="todo-jira-section">
-            <h4>Collaborators</h4>
+            <h4>Workspace members</h4>
             {membersLoading ? (
               <div className="todo-comments-empty">
-                <Spinner size="sm" /> Loading collaborators...
+                <Spinner size="sm" /> Loading workspace members...
               </div>
             ) : members.length === 0 ? (
-              <p>No collaborators yet.</p>
+              <p>No workspace members yet.</p>
             ) : (
               <div className="todo-comment-list">
                 {members.map((member) => (

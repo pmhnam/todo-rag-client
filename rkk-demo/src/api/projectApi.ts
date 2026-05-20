@@ -4,8 +4,8 @@ import type {
   CreateProjectInvitationReq,
   AcceptProjectInvitationRes,
   InviteProjectMemberReq,
+  ListProjectParams,
   PaginatedRes,
-  PageParams,
   Project,
   ProjectInvitation,
   ProjectInvitationPreview,
@@ -15,7 +15,7 @@ import type {
 } from './types';
 
 export const projectApi = {
-  getAll: (params?: PageParams) =>
+  getAll: (params?: ListProjectParams) =>
     apiClient
       .get<PaginatedRes<Project>>('/projects', { params })
       .then((r) => r.data),

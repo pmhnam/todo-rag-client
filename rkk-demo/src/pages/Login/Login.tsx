@@ -26,6 +26,11 @@ export const Login: React.FC = () => {
     try {
       await login(email, password);
       showToast('Welcome back!', 'success');
+      const pendingWorkspaceInviteToken = localStorage.getItem('pendingWorkspaceInviteToken');
+      if (pendingWorkspaceInviteToken) {
+        navigate(`/workspace-invite?token=${pendingWorkspaceInviteToken}`, { replace: true });
+        return;
+      }
       const pendingInviteToken = localStorage.getItem('pendingInviteToken');
       if (pendingInviteToken) {
         navigate(`/invite?token=${pendingInviteToken}`, { replace: true });

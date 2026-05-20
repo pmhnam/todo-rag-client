@@ -101,7 +101,19 @@ export interface Project {
   name: string;
   description?: string;
   userId: string;
+  workspaceId?: string;
   settings?: Record<string, unknown>;
+  isOwner: boolean;
+  permission: ProjectMemberPermission;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
   isOwner: boolean;
   permission: ProjectMemberPermission;
   createdAt: string;
@@ -123,6 +135,41 @@ export interface ProjectMember {
   userEmail?: string;
   permission: ProjectMemberPermission;
   createdAt: string;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  permission: ProjectMemberPermission;
+  createdAt: string;
+}
+
+export type WorkspaceInvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+
+export interface WorkspaceInvitation {
+  id: string;
+  workspaceId: string;
+  email: string;
+  permission: ProjectMemberPermission;
+  status: WorkspaceInvitationStatus;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface WorkspaceInvitationPreview {
+  workspaceName: string;
+  email: string;
+  permission: ProjectMemberPermission;
+  status: WorkspaceInvitationStatus;
+  expiresAt: string;
+}
+
+export interface AcceptWorkspaceInvitationRes {
+  workspaceId: string;
+  member: WorkspaceMember;
 }
 
 export interface InviteProjectMemberReq {
@@ -167,11 +214,31 @@ export interface UpdateProjectMemberReq {
 export interface CreateProjectReq {
   name: string;
   description?: string;
+  workspaceId?: string;
+}
+
+export interface CreateWorkspaceReq {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateWorkspaceReq {
+  name?: string;
+  description?: string;
+}
+
+export interface CreateWorkspaceInvitationReq {
+  email: string;
+  permission: ProjectMemberPermission;
 }
 
 export interface UpdateProjectReq {
   name?: string;
   description?: string;
+}
+
+export interface ListProjectParams extends PageParams {
+  workspaceId?: string;
 }
 
 export interface UpdateMeReq {

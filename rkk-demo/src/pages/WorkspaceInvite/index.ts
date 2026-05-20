@@ -1,0 +1,1 @@
+export { WorkspaceInvite } from './WorkspaceInvite';

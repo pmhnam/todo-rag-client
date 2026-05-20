@@ -9,6 +9,7 @@ import {
   Register,
   ForgotPassword,
   Invite,
+  WorkspaceInvite,
   ResetPassword,
   VerifyEmail,
   Dashboard,
@@ -29,6 +30,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/invite" element={<Invite />} />
+                <Route path="/workspace-invite" element={<WorkspaceInvite />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
 
