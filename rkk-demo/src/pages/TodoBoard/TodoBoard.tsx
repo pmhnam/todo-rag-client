@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useSearchParams } from "react-router-dom";
 import {
   Kanban,
@@ -17,6 +19,7 @@ import {
 import { projectApi } from "../../api/projectApi";
 import { jiraIntegrationApi } from "../../api/jiraIntegrationApi";
 import { workspaceApi } from "../../api/workspaceApi";
+import { ragApi } from "../../api/ragApi";
 import { useToast } from "../../components/Toast";
 import { Modal } from "../../components/Modal";
 import { Spinner } from "../../components/Spinner";
@@ -34,6 +37,8 @@ import type {
   WorkspaceInvitation,
   WorkspaceMember,
   ProjectMember,
+  AgentToolCall,
+  ContextChunk,
 } from "../../api/types";
 import { useProjects } from "../../contexts/useProjects";
 import {
@@ -59,6 +64,9 @@ import {
   Upload,
   Archive,
   RotateCcw,
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -83,8 +91,52 @@ const DEFAULT_COLUMN_COLORS = [
 ];
 type DueDateFilter = "ALL" | "OVERDUE" | "TODAY" | "UPCOMING" | "NO_DUE";
 type DueDateState = "overdue" | "today" | "tomorrow" | "upcoming" | "no_due";
+type AiSummaryMode = "overview" | "standup" | "risks" | "next_actions";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const AI_SUMMARY_MODES: Array<{ mode: AiSummaryMode; label: string }> = [
+  { mode: "overview", label: "Overview" },
+  { mode: "standup", label: "Standup" },
+  { mode: "risks", label: "Risks" },
+  { mode: "next_actions", label: "Next actions" },
+];
+
+const AI_SUMMARY_PROMPTS: Record<AiSummaryMode, string> = {
+  overview: `Tóm tắt project/board hiện tại theo format:
+1. Executive summary: 2-3 câu
+2. Board health: Healthy / Attention needed / At risk
+3. Progress by status
+4. Important tasks
+5. Blockers or risks
+6. Recommended next actions
+
+Chỉ dùng dữ liệu của project hiện tại. Nếu thiếu dữ liệu, nói rõ thiếu gì. Không tạo, sửa, xoá, hoặc di chuyển task.`,
+  standup: `Tạo daily standup summary cho project hiện tại:
+1. Done/recent progress nếu có dữ liệu
+2. Currently in progress
+3. Blockers
+4. Tasks needing attention today
+5. Suggested focus for next 24h
+
+Chỉ dùng dữ liệu của project hiện tại. Nếu thiếu dữ liệu, nói rõ thiếu gì. Không tạo, sửa, xoá, hoặc di chuyển task.`,
+  risks: `Phân tích rủi ro của board hiện tại:
+1. Overdue tasks
+2. High priority unfinished tasks
+3. Tasks without assignee or due date
+4. Jira failed/pending sync issues
+5. Bottlenecks by status
+6. Top 3 risks with reason and suggested mitigation
+
+Chỉ dùng dữ liệu của project hiện tại. Nếu thiếu dữ liệu, nói rõ thiếu gì. Không tạo, sửa, xoá, hoặc di chuyển task.`,
+  next_actions: `Đề xuất next actions cho project hiện tại:
+1. 3-5 actions cụ thể
+2. Vì sao nên làm
+3. Task liên quan nếu có
+4. Ưu tiên High/Medium/Low
+
+Không tạo task mới, chỉ đề xuất. Chỉ dùng dữ liệu của project hiện tại. Nếu thiếu dữ liệu, nói rõ thiếu gì.`,
+};
 
 function statusesToBoardData(
   statuses: TodoStatus[],
@@ -266,6 +318,20 @@ function getAssigneeInitials(todo: Todo) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
+}
+
+function getAiToolLabel(toolName: string) {
+  const labels: Record<string, string> = {
+    listProjects: "Checked projects",
+    listTaskStatuses: "Checked board columns",
+    findTasks: "Reviewed tasks",
+    getTaskDetails: "Opened task details",
+    listTaskComments: "Checked task comments",
+    getDashboardStats: "Checked dashboard stats",
+    countTasks: "Counted tasks",
+  };
+
+  return labels[toolName] || toolName;
 }
 
 // ─── TodoCard ──────────────────────────────────────────
@@ -656,6 +722,22 @@ export const TodoBoard: React.FC = () => {
   const [filterDueDate, setFilterDueDate] = useState<DueDateFilter>("ALL");
   const [filterArchived, setFilterArchived] = useState(false);
   const [filterAssigneeId, setFilterAssigneeId] = useState("ALL");
+  const [showAiSummary, setShowAiSummary] = useState(false);
+  const [aiSummaryMode, setAiSummaryMode] =
+    useState<AiSummaryMode>("overview");
+  const [aiSummaryConversationId, setAiSummaryConversationId] = useState<
+    string | null
+  >(null);
+  const [aiSummaryText, setAiSummaryText] = useState("");
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryError, setAiSummaryError] = useState("");
+  const [aiSummaryToolCalls, setAiSummaryToolCalls] = useState<
+    AgentToolCall[]
+  >([]);
+  const [aiSummaryContextChunks, setAiSummaryContextChunks] = useState<
+    ContextChunk[]
+  >([]);
+  const [showAiSummarySources, setShowAiSummarySources] = useState(false);
 
   const { showToast } = useToast();
   const hasActiveFilters =
@@ -813,6 +895,15 @@ export const TodoBoard: React.FC = () => {
     selectedProjectId,
     loadData,
   ]);
+
+  useEffect(() => {
+    setAiSummaryConversationId(null);
+    setAiSummaryText("");
+    setAiSummaryError("");
+    setAiSummaryToolCalls([]);
+    setAiSummaryContextChunks([]);
+    setShowAiSummarySources(false);
+  }, [selectedProjectId]);
 
   const resetJiraForm = () => {
     setJiraHasConfig(false);
@@ -1562,6 +1653,51 @@ export const TodoBoard: React.FC = () => {
     setFilterArchived(false);
   };
 
+  const handleGenerateAiSummary = async (mode = aiSummaryMode) => {
+    if (!selectedProjectId || aiSummaryLoading) return;
+
+    setAiSummaryMode(mode);
+    setShowAiSummary(true);
+    setAiSummaryLoading(true);
+    setAiSummaryError("");
+    setAiSummaryToolCalls([]);
+    setAiSummaryContextChunks([]);
+
+    try {
+      let conversationId = aiSummaryConversationId;
+      if (!conversationId) {
+        const conversation = await ragApi.createConversation();
+        conversationId = conversation.id;
+        setAiSummaryConversationId(conversation.id);
+      }
+
+      const projectName = selectedProject?.name || "current board";
+      const prompt = `Project hiện tại: ${projectName}\n\n${AI_SUMMARY_PROMPTS[mode]}`;
+      const response = await ragApi.sendMessage(
+        conversationId,
+        prompt,
+        undefined,
+        selectedProjectId,
+      );
+
+      setAiSummaryText(response.response);
+      setAiSummaryToolCalls(response.toolCalls || []);
+      setAiSummaryContextChunks(response.contextChunks || []);
+    } catch {
+      setAiSummaryError(
+        "Could not generate the project summary. Please retry or open AI Chat.",
+      );
+      showToast("Failed to generate AI summary", "error");
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  const handleSelectAiSummaryMode = (mode: AiSummaryMode) => {
+    if (mode === aiSummaryMode && aiSummaryText) return;
+    handleGenerateAiSummary(mode);
+  };
+
   if (isProjectLoading || isLoading) {
     return (
       <div className="todo-board-loading">
@@ -1645,6 +1781,18 @@ export const TodoBoard: React.FC = () => {
           <span className="todo-board-count">{totalTasks} tasks</span>
         </div>
         <div className="todo-board-header-right">
+          <button
+            className="btn-ghost todo-ai-summary-button"
+            onClick={() => {
+              setShowAiSummary(true);
+              if (!aiSummaryText && !aiSummaryLoading) {
+                handleGenerateAiSummary();
+              }
+            }}
+            disabled={!selectedProjectId}
+          >
+            <Sparkles size={16} /> AI Summary
+          </button>
           {canInvite && (
             <button
               className="btn-ghost"
@@ -1874,6 +2022,154 @@ export const TodoBoard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showAiSummary && (
+        <div
+          className="todo-ai-summary-overlay"
+          onClick={() => setShowAiSummary(false)}
+        >
+          <aside
+            className="todo-ai-summary-drawer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="todo-ai-summary-header">
+              <div>
+                <span className="todo-ai-summary-eyebrow">AI project brief</span>
+                <h2>{selectedProject?.name || "Board"}</h2>
+              </div>
+              <button
+                className="todo-detail-close"
+                onClick={() => setShowAiSummary(false)}
+                disabled={aiSummaryLoading}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="todo-ai-summary-tabs">
+              {AI_SUMMARY_MODES.map((item) => (
+                <button
+                  key={item.mode}
+                  className={item.mode === aiSummaryMode ? "active" : ""}
+                  onClick={() => handleSelectAiSummaryMode(item.mode)}
+                  disabled={aiSummaryLoading}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="todo-ai-summary-body">
+              {aiSummaryLoading ? (
+                <div className="todo-ai-summary-loading">
+                  <Spinner size="md" />
+                  <div>
+                    <strong>Analyzing board...</strong>
+                    <p>
+                      Checking statuses, task counts, due dates, priorities,
+                      comments, and Jira sync state.
+                    </p>
+                  </div>
+                </div>
+              ) : aiSummaryError ? (
+                <div className="todo-ai-summary-empty">
+                  <AlertCircle size={28} />
+                  <p>{aiSummaryError}</p>
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleGenerateAiSummary(aiSummaryMode)}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : aiSummaryText ? (
+                <div className="todo-ai-summary-markdown">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {aiSummaryText}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="todo-ai-summary-empty">
+                  <Sparkles size={32} />
+                  <p>Generate an AI summary for this project.</p>
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleGenerateAiSummary(aiSummaryMode)}
+                  >
+                    Generate summary
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {(aiSummaryToolCalls.length > 0 ||
+              aiSummaryContextChunks.length > 0) && (
+              <div className="todo-ai-summary-sources">
+                <button
+                  className="todo-ai-summary-sources-toggle"
+                  onClick={() =>
+                    setShowAiSummarySources((current) => !current)
+                  }
+                >
+                  {showAiSummarySources ? (
+                    <ChevronDown size={16} />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
+                  Sources used
+                  <span>
+                    {aiSummaryToolCalls.length} actions, {aiSummaryContextChunks.length} sources
+                  </span>
+                </button>
+
+                {showAiSummarySources && (
+                  <div className="todo-ai-summary-sources-list">
+                    {aiSummaryToolCalls.length > 0 && (
+                      <div className="todo-ai-summary-source-group">
+                        <strong>Agent actions</strong>
+                        {aiSummaryToolCalls.map((call, index) => (
+                          <div
+                            className="todo-ai-summary-source-item"
+                            key={`${call.toolName}-${index}`}
+                          >
+                            <span>{getAiToolLabel(call.toolName)}</span>
+                            <small>{call.output ? "completed" : "started"}</small>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {aiSummaryContextChunks.length > 0 && (
+                      <div className="todo-ai-summary-source-group">
+                        <strong>RAG sources</strong>
+                        {aiSummaryContextChunks.map((chunk, index) => (
+                          <div
+                            className="todo-ai-summary-source-item todo-ai-summary-source-item--chunk"
+                            key={`${chunk.chunkId}-${index}`}
+                          >
+                            <span>{chunk.contentPreview}</span>
+                            <small>{(1 - chunk.distance).toFixed(2)} match</small>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="todo-ai-summary-footer">
+              <button
+                className="btn-ghost"
+                onClick={() => handleGenerateAiSummary(aiSummaryMode)}
+                disabled={aiSummaryLoading || !selectedProjectId}
+              >
+                <RefreshCw size={16} /> Refresh
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {editingTodo && (
         <div
