@@ -236,6 +236,21 @@ function isVideoAttachment(attachment: TodoAttachment) {
   );
 }
 
+function getMemberLabel(member: WorkspaceMember) {
+  return member.userName || member.userEmail || member.userId;
+}
+
+function getAssigneeInitials(todo: Todo) {
+  const label = todo.assignee?.name || todo.assignee?.email;
+  if (!label) return '';
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
+
 // ─── TodoCard ──────────────────────────────────────────
 
 const TodoCard: React.FC<{
@@ -371,6 +386,16 @@ const TodoCard: React.FC<{
             <span className="todo-card-jira-status">{todo.jiraSyncStatus}</span>
           </span>
         )}
+        {todo.assignee && (
+          <span className="todo-card-assignee" title={todo.assignee.email}>
+            {todo.assignee.image ? (
+              <img src={todo.assignee.image} alt={todo.assignee.name} />
+            ) : (
+              <span>{getAssigneeInitials(todo)}</span>
+            )}
+            {todo.assignee.name || todo.assignee.email}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -380,11 +405,13 @@ const TodoCard: React.FC<{
 
 const AddCardForm: React.FC<{
   statusId: string;
+  members: WorkspaceMember[];
   onAdd: (data: Omit<CreateTodoReq, "projectId">) => void;
   onCancel: () => void;
-}> = ({ statusId, onAdd, onCancel }) => {
+}> = ({ statusId, members, onAdd, onCancel }) => {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TodoPriority>("MEDIUM");
+  const [assigneeId, setAssigneeId] = useState("");
   const [tagsStr, setTagsStr] = useState("");
   const [dueDate, setDueDate] = useState("");
   const dueDateInfo = getDueDateInfo(dueDate);
@@ -394,6 +421,7 @@ const AddCardForm: React.FC<{
     onAdd({
       title: title.trim(),
       statusId,
+      assigneeId: assigneeId || undefined,
       priority,
       dueDate: dueDate || undefined,
       tags: tagsStr
@@ -404,6 +432,7 @@ const AddCardForm: React.FC<{
         : undefined,
     });
     setTitle("");
+    setAssigneeId("");
     setTagsStr("");
     setDueDate("");
   };
@@ -481,6 +510,18 @@ const AddCardForm: React.FC<{
           <option value="MEDIUM">Medium</option>
           <option value="HIGH">High</option>
         </select>
+        <select
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+          className="todo-add-card-priority"
+        >
+          <option value="">Unassigned</option>
+          {members.map((member) => (
+            <option key={member.userId} value={member.userId}>
+              {getMemberLabel(member)}
+            </option>
+          ))}
+        </select>
         <div className="todo-add-card-buttons">
           <button className="btn-primary" onClick={handleSubmit}>
             Add
@@ -540,6 +581,7 @@ export const TodoBoard: React.FC = () => {
   const [editDescription, setEditDescription] = useState("");
   const [editPriority, setEditPriority] = useState<TodoPriority>("MEDIUM");
   const [editStatusId, setEditStatusId] = useState("");
+  const [editAssigneeId, setEditAssigneeId] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editTagsStr, setEditTagsStr] = useState("");
   const [editAiSummary, setEditAiSummary] = useState("");
@@ -592,6 +634,7 @@ export const TodoBoard: React.FC = () => {
   >("ALL");
   const [filterDueDate, setFilterDueDate] = useState<DueDateFilter>("ALL");
   const [filterArchived, setFilterArchived] = useState(false);
+  const [filterAssigneeId, setFilterAssigneeId] = useState("ALL");
 
   const { showToast } = useToast();
   const hasActiveFilters =
@@ -599,6 +642,7 @@ export const TodoBoard: React.FC = () => {
     filterPriority !== "ALL" ||
     filterJiraStatus !== "ALL" ||
     filterDueDate !== "ALL" ||
+    filterAssigneeId !== "ALL" ||
     filterArchived;
   const editDueDateInfo = getDueDateInfo(editDueDate);
 
@@ -628,6 +672,11 @@ export const TodoBoard: React.FC = () => {
           priority: filterPriority === "ALL" ? undefined : filterPriority,
           jiraSyncStatus:
             filterJiraStatus === "ALL" ? undefined : filterJiraStatus,
+          assigneeId:
+            filterAssigneeId !== "ALL" && filterAssigneeId !== "UNASSIGNED"
+              ? filterAssigneeId
+              : undefined,
+          unassigned: filterAssigneeId === "UNASSIGNED" || undefined,
           archived: filterArchived || undefined,
         });
         for (const todo of todos) {
@@ -669,6 +718,7 @@ export const TodoBoard: React.FC = () => {
     [
       filterArchived,
       filterDueDate,
+      filterAssigneeId,
       filterJiraStatus,
       filterPriority,
       hasActiveFilters,
@@ -887,6 +937,17 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!selectedWorkspaceId) {
+      setMembers([]);
+      return;
+    }
+    workspaceApi
+      .getMembers(selectedWorkspaceId)
+      .then(setMembers)
+      .catch(() => showToast("Failed to load workspace members", "error"));
+  }, [selectedWorkspaceId, showToast]);
+
   const loadInvitations = async (workspaceId: string) => {
     try {
       setPendingInvitations(await workspaceApi.getInvitations(workspaceId));
@@ -999,6 +1060,20 @@ export const TodoBoard: React.FC = () => {
       externalLinks: data.externalLinks,
       aiSummary: data.aiSummary,
       generatedByAi: data.generatedByAi,
+      assigneeId: data.assigneeId || undefined,
+      assignee: data.assigneeId
+        ? members.find((member) => member.userId === data.assigneeId)
+          ? {
+              id: data.assigneeId,
+              name: getMemberLabel(
+                members.find((member) => member.userId === data.assigneeId)!,
+              ),
+              email:
+                members.find((member) => member.userId === data.assigneeId)
+                  ?.userEmail || "",
+            }
+          : undefined
+        : undefined,
     };
     const optimisticTodosByStatus = new Map(todosByStatus);
     optimisticTodosByStatus.set(data.statusId, [
@@ -1040,6 +1115,7 @@ export const TodoBoard: React.FC = () => {
     setEditPriority(todo.priority);
     setEditDueDate(todo.dueDate ? todo.dueDate.split("T")[0] : "");
     setEditStatusId(todo.statusId);
+    setEditAssigneeId(todo.assigneeId || "");
     setEditTagsStr(todo.tags?.join(", ") || "");
     setEditAiSummary(todo.aiSummary || "");
     setEditGeneratedByAi(todo.generatedByAi || false);
@@ -1259,6 +1335,7 @@ export const TodoBoard: React.FC = () => {
         title: editTitle,
         description: editDescription || undefined,
         statusId: editStatusId || undefined,
+        assigneeId: editAssigneeId || null,
         priority: editPriority,
         dueDate: editDueDate || undefined,
         tags: editTagsStr
@@ -1439,6 +1516,7 @@ export const TodoBoard: React.FC = () => {
     setFilterPriority("ALL");
     setFilterJiraStatus("ALL");
     setFilterDueDate("ALL");
+    setFilterAssigneeId("ALL");
     setFilterArchived(false);
   };
 
@@ -1597,6 +1675,18 @@ export const TodoBoard: React.FC = () => {
             <option value="NO_DUE">No due date</option>
           </select>
           <select
+            value={filterAssigneeId}
+            onChange={(e) => setFilterAssigneeId(e.target.value)}
+          >
+            <option value="ALL">All assignees</option>
+            <option value="UNASSIGNED">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {getMemberLabel(member)}
+              </option>
+            ))}
+          </select>
+          <select
             value={filterArchived ? "ARCHIVED" : "ACTIVE"}
             onChange={(e) => setFilterArchived(e.target.value === "ARCHIVED")}
           >
@@ -1707,6 +1797,7 @@ export const TodoBoard: React.FC = () => {
               addingCardForColumn === column.id ? (
                 <AddCardForm
                   statusId={column.id}
+                  members={members}
                   onAdd={handleAddCard}
                   onCancel={() => setAddingCardForColumn(null)}
                 />
@@ -1816,6 +1907,21 @@ export const TodoBoard: React.FC = () => {
                       <option value="LOW">Low</option>
                       <option value="MEDIUM">Medium</option>
                       <option value="HIGH">High</option>
+                    </select>
+                  </div>
+                  <div className="auth-field">
+                    <label>Assignee</label>
+                    <select
+                      value={editAssigneeId}
+                      onChange={(e) => setEditAssigneeId(e.target.value)}
+                      disabled={!canWrite}
+                    >
+                      <option value="">Unassigned</option>
+                      {members.map((member) => (
+                        <option key={member.userId} value={member.userId}>
+                          {getMemberLabel(member)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -2610,6 +2716,7 @@ export const TodoBoard: React.FC = () => {
                       <time>{member.userEmail}</time>
                     </div>
                     <div className="todo-comment-actions">
+                      {member.id === member.userId && <span>Owner</span>}
                       <select
                         value={member.permission}
                         onChange={(e) =>
@@ -2618,7 +2725,7 @@ export const TodoBoard: React.FC = () => {
                             e.target.value as ProjectMemberPermission,
                           )
                         }
-                        disabled={membersLoading}
+                        disabled={membersLoading || member.id === member.userId}
                       >
                         <option value="READ">Read only</option>
                         <option value="WRITE">Write</option>
@@ -2627,7 +2734,7 @@ export const TodoBoard: React.FC = () => {
                       <button
                         className="btn-ghost"
                         onClick={() => handleRemoveMember(member.id)}
-                        disabled={membersLoading}
+                        disabled={membersLoading || member.id === member.userId}
                       >
                         Remove
                       </button>

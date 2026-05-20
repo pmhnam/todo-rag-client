@@ -301,6 +301,14 @@ export interface Todo {
   description?: string;
   statusId: string;
   status?: TodoStatus;
+  assigneeId?: string;
+  assignee?: {
+    id: string;
+    username?: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
   priority: TodoPriority;
   position: number;
   dueDate?: string;
@@ -342,6 +350,7 @@ export interface CreateTodoReq {
   title: string;
   description?: string;
   statusId: string;
+  assigneeId?: string | null;
   priority?: TodoPriority;
   position?: number;
   dueDate?: string;
@@ -355,6 +364,7 @@ export interface UpdateTodoReq {
   title?: string;
   description?: string;
   statusId?: string;
+  assigneeId?: string | null;
   priority?: TodoPriority;
   position?: number;
   dueDate?: string;
@@ -459,6 +469,8 @@ export interface ListTodoParams {
   limit?: number;
   q?: string;
   statusId?: string;
+  assigneeId?: string;
+  unassigned?: boolean;
   priority?: TodoPriority;
   jiraSyncStatus?: JiraSyncStatus;
   archived?: boolean;

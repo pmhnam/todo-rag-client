@@ -254,6 +254,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 .todo-card-due {
   display: flex;
@@ -300,6 +301,37 @@
   font-size: 0.58rem;
   font-weight: 700;
   padding: 1px 5px;
+}
+.todo-card-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+
+  img,
+  > span {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+  }
+
+  img {
+    object-fit: cover;
+  }
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-600);
+    color: #fff;
+    font-size: 0.55rem;
+  }
 }
 .todo-card-jira-failed .todo-card-jira-status {
   background: #fee2e2;
