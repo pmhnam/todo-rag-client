@@ -14,6 +14,7 @@ import {
   todoCommentApi,
   todoStatusApi,
 } from "../../api/todoApi";
+import { projectApi } from "../../api/projectApi";
 import { jiraIntegrationApi } from "../../api/jiraIntegrationApi";
 import { workspaceApi } from "../../api/workspaceApi";
 import { useToast } from "../../components/Toast";
@@ -32,6 +33,7 @@ import type {
   TodoAttachment,
   WorkspaceInvitation,
   WorkspaceMember,
+  ProjectMember,
 } from "../../api/types";
 import { useProjects } from "../../contexts/useProjects";
 import {
@@ -240,6 +242,21 @@ function getMemberLabel(member: WorkspaceMember) {
   return member.userName || member.userEmail || member.userId;
 }
 
+function projectMemberToWorkspaceMember(
+  member: ProjectMember,
+  workspaceId: string,
+): WorkspaceMember {
+  return {
+    id: member.id,
+    workspaceId,
+    userId: member.userId,
+    userName: member.userName,
+    userEmail: member.userEmail,
+    permission: member.permission,
+    createdAt: member.createdAt,
+  };
+}
+
 function getAssigneeInitials(todo: Todo) {
   const label = todo.assignee?.name || todo.assignee?.email;
   if (!label) return '';
@@ -406,9 +423,10 @@ const TodoCard: React.FC<{
 const AddCardForm: React.FC<{
   statusId: string;
   members: WorkspaceMember[];
+  membersLoading: boolean;
   onAdd: (data: Omit<CreateTodoReq, "projectId">) => void;
   onCancel: () => void;
-}> = ({ statusId, members, onAdd, onCancel }) => {
+}> = ({ statusId, members, membersLoading, onAdd, onCancel }) => {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TodoPriority>("MEDIUM");
   const [assigneeId, setAssigneeId] = useState("");
@@ -514,8 +532,11 @@ const AddCardForm: React.FC<{
           value={assigneeId}
           onChange={(e) => setAssigneeId(e.target.value)}
           className="todo-add-card-priority"
+          disabled={membersLoading}
         >
-          <option value="">Unassigned</option>
+          <option value="">
+            {membersLoading ? "Loading assignees..." : "Unassigned"}
+          </option>
           {members.map((member) => (
             <option key={member.userId} value={member.userId}>
               {getMemberLabel(member)}
@@ -937,16 +958,37 @@ export const TodoBoard: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (!selectedWorkspaceId) {
+  const loadAssigneeMembers = useCallback(async () => {
+    if (!selectedProjectId) {
       setMembers([]);
       return;
     }
-    workspaceApi
-      .getMembers(selectedWorkspaceId)
-      .then(setMembers)
-      .catch(() => showToast("Failed to load workspace members", "error"));
-  }, [selectedWorkspaceId, showToast]);
+
+    setMembersLoading(true);
+    try {
+      const workspaceId = selectedWorkspaceId || selectedProject?.workspaceId;
+      if (workspaceId) {
+        setMembers(await workspaceApi.getMembers(workspaceId));
+        return;
+      }
+
+      const projectMembers = await projectApi.getMembers(selectedProjectId);
+      setMembers(
+        projectMembers.map((member) =>
+          projectMemberToWorkspaceMember(member, selectedProjectId),
+        ),
+      );
+    } catch {
+      setMembers([]);
+      showToast("Failed to load assignees", "error");
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [selectedProject?.workspaceId, selectedProjectId, selectedWorkspaceId, showToast]);
+
+  useEffect(() => {
+    loadAssigneeMembers();
+  }, [loadAssigneeMembers]);
 
   const loadInvitations = async (workspaceId: string) => {
     try {
@@ -1677,8 +1719,11 @@ export const TodoBoard: React.FC = () => {
           <select
             value={filterAssigneeId}
             onChange={(e) => setFilterAssigneeId(e.target.value)}
+            disabled={membersLoading}
           >
-            <option value="ALL">All assignees</option>
+            <option value="ALL">
+              {membersLoading ? "Loading assignees..." : "All assignees"}
+            </option>
             <option value="UNASSIGNED">Unassigned</option>
             {members.map((member) => (
               <option key={member.userId} value={member.userId}>
@@ -1798,6 +1843,7 @@ export const TodoBoard: React.FC = () => {
                 <AddCardForm
                   statusId={column.id}
                   members={members}
+                  membersLoading={membersLoading}
                   onAdd={handleAddCard}
                   onCancel={() => setAddingCardForColumn(null)}
                 />
@@ -1914,9 +1960,11 @@ export const TodoBoard: React.FC = () => {
                     <select
                       value={editAssigneeId}
                       onChange={(e) => setEditAssigneeId(e.target.value)}
-                      disabled={!canWrite}
+                      disabled={!canWrite || membersLoading}
                     >
-                      <option value="">Unassigned</option>
+                      <option value="">
+                        {membersLoading ? "Loading assignees..." : "Unassigned"}
+                      </option>
                       {members.map((member) => (
                         <option key={member.userId} value={member.userId}>
                           {getMemberLabel(member)}
