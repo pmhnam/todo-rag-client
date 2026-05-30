@@ -29,6 +29,10 @@ export interface LoginReq {
   password: string;
 }
 
+export interface GoogleLoginReq {
+  idToken: string;
+}
+
 export interface LoginRes {
   userId: string;
   accessToken: string;
@@ -147,7 +151,11 @@ export interface WorkspaceMember {
   createdAt: string;
 }
 
-export type WorkspaceInvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+export type WorkspaceInvitationStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REVOKED"
+  | "EXPIRED";
 
 export interface WorkspaceInvitation {
   id: string;

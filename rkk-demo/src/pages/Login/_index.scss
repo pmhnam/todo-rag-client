@@ -24,7 +24,11 @@
   position: absolute;
   inset: 0;
   opacity: 0.1;
-  background-image: radial-gradient(circle at 25% 25%, white 1px, transparent 1px);
+  background-image: radial-gradient(
+    circle at 25% 25%,
+    white 1px,
+    transparent 1px
+  );
   background-size: 30px 30px;
 }
 
@@ -42,8 +46,14 @@
 }
 
 @keyframes authSlideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-card-header {
@@ -95,7 +105,9 @@
     color: var(--text-secondary);
   }
 
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     width: 100%;
     padding: 10px 12px;
     border: 1.5px solid var(--border-subtle);
@@ -151,7 +163,9 @@
   padding: 4px;
   display: flex;
 
-  &:hover { color: var(--text-muted); }
+  &:hover {
+    color: var(--text-muted);
+  }
 }
 
 .auth-submit {
@@ -193,6 +207,33 @@
   gap: 8px;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+  }
+}
+
+.auth-social {
+  display: flex;
+  justify-content: center;
+
+  &.is-disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
 .auth-footer {
   text-align: center;
   margin-top: 24px;
@@ -227,8 +268,12 @@
     font-size: 0.9rem;
   }
 
-  svg { color: #667eea; }
-  small { color: var(--text-muted); }
+  svg {
+    color: #667eea;
+  }
+  small {
+    color: var(--text-muted);
+  }
 }
 
 .invite-copy {

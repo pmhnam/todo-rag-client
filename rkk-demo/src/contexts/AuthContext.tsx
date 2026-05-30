@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   clearAuthTokens,
   refreshAuthTokens,
   setAuthTokens,
   shouldRefreshAccessToken,
-} from '../api/apiClient';
-import { authApi } from '../api/authApi';
-import { userApi } from '../api/userApi';
-import type { User } from '../api/types';
-import { AuthContext } from './authContext';
+} from "../api/apiClient";
+import { authApi } from "../api/authApi";
+import { userApi } from "../api/userApi";
+import type { User } from "../api/types";
+import { AuthContext } from "./authContext";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
-    const refreshToken = localStorage.getItem('refreshToken');
+    const token = localStorage.getItem("accessToken");
+    const refreshToken = localStorage.getItem("refreshToken");
 
     if (!token && !refreshToken) {
       setIsLoading(false);
@@ -43,6 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const res = await authApi.login({ email, password });
+    setAuthTokens(res);
+    const userData = await userApi.me();
+    setUser(userData);
+  };
+
+  const googleLogin = async (idToken: string) => {
+    const res = await authApi.googleLogin({ idToken });
     setAuthTokens(res);
     const userData = await userApi.me();
     setUser(userData);
@@ -79,6 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        googleLogin,
         register,
         refreshUser,
         setCurrentUser,

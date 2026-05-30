@@ -1,44 +1,100 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/useAuth';
-import { useToast } from '../../components/Toast';
-import { UserPlus, Mail, Lock, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
+import React, { useState } from "react";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/useAuth";
+import { useToast } from "../../components/Toast";
+import {
+  UserPlus,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 
 export const Register: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const googleClientId =
+    window.__RKK_DEMO_CONFIG__?.VITE_GOOGLE_CLIENT_ID ||
+    import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const handlePostAuthRedirect = () => {
+    const pendingWorkspaceInviteToken = localStorage.getItem(
+      "pendingWorkspaceInviteToken",
+    );
+    if (pendingWorkspaceInviteToken) {
+      navigate(`/workspace-invite?token=${pendingWorkspaceInviteToken}`, {
+        replace: true,
+      });
+      return;
+    }
+    const pendingInviteToken = localStorage.getItem("pendingInviteToken");
+    if (pendingInviteToken) {
+      navigate(`/invite?token=${pendingInviteToken}`, { replace: true });
+      return;
+    }
+    navigate("/board", { replace: true });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email || !password || !confirmPassword) {
-      showToast('Please fill in all fields', 'warning');
+      showToast("Please fill in all fields", "warning");
       return;
     }
     if (password !== confirmPassword) {
-      showToast('Passwords do not match', 'error');
+      showToast("Passwords do not match", "error");
       return;
     }
     if (password.length < 6) {
-      showToast('Password must be at least 6 characters', 'warning');
+      showToast("Password must be at least 6 characters", "warning");
       return;
     }
     setIsSubmitting(true);
     try {
       await register(name.trim(), email, password);
-      showToast('Account created! Check your email to verify your account.', 'success');
-      navigate('/login', { replace: true });
+      showToast(
+        "Account created! Check your email to verify your account.",
+        "success",
+      );
+      navigate("/login", { replace: true });
     } catch (err: unknown) {
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Registration failed. Please try again.';
-      showToast(message, 'error');
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Registration failed. Please try again.";
+      showToast(message, "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (
+    credentialResponse: CredentialResponse,
+  ) => {
+    if (!credentialResponse.credential) {
+      showToast("Google login failed", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      showToast("Welcome!", "success");
+      handlePostAuthRedirect();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Google login failed";
+      showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +154,7 @@ export const Register: React.FC = () => {
               <Lock size={18} className="auth-input-icon" />
               <input
                 id="reg-password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -121,7 +177,7 @@ export const Register: React.FC = () => {
               <ShieldCheck size={18} className="auth-input-icon" />
               <input
                 id="reg-confirm"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -141,14 +197,28 @@ export const Register: React.FC = () => {
                 Creating account...
               </span>
             ) : (
-              'Create Account'
+              "Create Account"
             )}
           </button>
         </form>
 
+        {googleClientId && (
+          <>
+            <div className="auth-divider">
+              <span>or</span>
+            </div>
+            <div className={`auth-social${isSubmitting ? " is-disabled" : ""}`}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => showToast("Google login failed", "error")}
+              />
+            </div>
+          </>
+        )}
+
         <div className="auth-footer">
           <p>
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link to="/login" className="auth-link">
               Sign in
             </Link>
